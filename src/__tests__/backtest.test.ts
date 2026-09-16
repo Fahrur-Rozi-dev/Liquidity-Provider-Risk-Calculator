@@ -30,8 +30,7 @@ describe('Historical Backtest Engine', () => {
     poolFeeRate: 0,
     estimatedLPShare: 0,
     fundingRatePerStep: 0,
-    simulationPath: [],
-    historicalData: [], fundingCost: 0, openShortCost: 0, closeShortCost: 0, rebalanceCost: 0
+    simulationPath: [], historicalData: [],
   });
 
   const generateData = (prices: number[]): PricePoint[] => {

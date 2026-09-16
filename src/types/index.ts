@@ -4,6 +4,66 @@ export type ModelType = 'simplified' | 'clmm';
 export type RangeStatus = 'BELOW_RANGE' | 'IN_RANGE' | 'ABOVE_RANGE';
 export type HedgeStrategyMode = "FIXED" | "DYNAMIC" | "THRESHOLD";
 
+// --- Phase 5 Types: Pool & Protocol ---
+
+export interface TokenInfo {
+  address: string;
+  symbol: string;
+  decimals: number;
+}
+
+export type PoolType = "CLMM" | "DLMM" | "OTHER";
+
+export interface NormalizedPool {
+  id: string;
+  protocol: string;
+  chain: string;
+
+  token0: TokenInfo;
+  token1: TokenInfo;
+
+  poolType: PoolType;
+
+  feeRate?: Decimal;
+  currentPrice?: Decimal; // USDC per SOL
+
+  liquidity?: Decimal;
+  tvlUsd?: Decimal;
+  volume24hUsd?: Decimal;
+  fees24hUsd?: Decimal;
+  apr?: Decimal;
+
+  updatedAt: Date;
+  source: string;
+
+  fetchedAt: Date; // Source freshness tracking
+}
+
+export interface PoolSnapshot {
+  poolId: string;
+  timestamp: Date;
+  price?: Decimal;
+  tvlUsd?: Decimal;
+  liquidity?: Decimal;
+  volumeUsd?: Decimal;
+  feesUsd?: Decimal;
+  feeRate?: Decimal;
+  source: string;
+}
+
+export interface HistoryParams {
+  interval: '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
+  startTime?: Date;
+  endTime?: Date;
+}
+
+export interface PoolDataProvider {
+  getPool(poolId: string): Promise<NormalizedPool>;
+  getPoolSnapshot(poolId: string): Promise<PoolSnapshot>;
+  getPoolHistory(poolId: string, params: HistoryParams): Promise<PoolSnapshot[]>;
+  searchPools(query: string): Promise<NormalizedPool[]>;
+}
+
 // --- Phase 4 Types: Data ---
 export interface PricePoint {
   timestamp: number;
@@ -17,7 +77,7 @@ export interface FundingPoint {
   rate: Decimal;
 }
 
-export type FeeModelType = 'MANUAL' | 'ESTIMATED';
+export type FeeModelType = 'NONE' | 'MANUAL' | 'POOL_ESTIMATE' | 'HISTORICAL_POOL_FEES' | 'POSITION_LEVEL';
 export type IntervalType = 'IRREGULAR_INTERVAL' | string;
 
 export interface MarketDataSummary {
@@ -91,15 +151,11 @@ export interface SimulationSnapshot {
 }
 
 export interface BacktestMetrics {
-  // Config
   initialCapital: number;
-
-  // Return
   finalEquity: number;
   totalReturnPercent: number;
   annualizedReturnPercent: number | null;
 
-  // PnL Breakdown
   lpPnL: number;
   shortPnL: number;
   feeIncome: number;
@@ -110,7 +166,6 @@ export interface BacktestMetrics {
   totalHedgeTradingCosts: number;
   combinedPnL: number;
 
-  // Risk & Drawdown
   maxDrawdownUSD: number;
   maxDrawdownPercent: number;
   volatilityAnnualized: number | null;
@@ -118,7 +173,6 @@ export interface BacktestMetrics {
   sortinoRatio: number | null;
   winRatePercent: number;
 
-  // Exposure & Range
   timeInRangePercent: number;
   timeBelowRangePercent: number;
   timeAboveRangePercent: number;
@@ -128,7 +182,6 @@ export interface BacktestMetrics {
   maxAbsNetDelta: number;
   numberOfRangeEntries: number;
 
-  // IL & Rebalance
   initialIL: number;
   minILPercent: number;
   maxILPercent: number;
@@ -149,10 +202,6 @@ export interface SimulationResult {
 
 // --- Combined State ---
 export interface CalculatorState {
-  fundingCost: number;
-  openShortCost: number;
-  closeShortCost: number;
-  rebalanceCost: number;
   modelType: ModelType;
   pairName: string;
   totalCapital: number;
@@ -194,7 +243,10 @@ export interface CalculatorState {
   startDate?: number;
   endDate?: number;
   historicalData: PricePoint[];
-  simulationPath: number[]; // fallback for Phase 3 simple logic
+  simulationPath: number[];
+
+  // Phase 5 Selected Pool
+  selectedPoolId?: string;
 }
 
 // --- Existing Phase 1/2 Types ---

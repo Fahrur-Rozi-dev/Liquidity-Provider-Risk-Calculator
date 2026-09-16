@@ -73,19 +73,19 @@ export function runBacktest(state: CalculatorState, historicalData: PricePoint[]
   if (state.modelType === 'clmm') {
     const initCLMM = calculateCLMM(state.totalCapital, entryPrice, state.lowerPrice, state.upperPrice, entryPrice);
     initialSolExposure = initCLMM.lpDelta || initCLMM.currentVolatileValue;
-    _initialLpValue = initCLMM.lpValue;
+
     initialHodlValue = initCLMM.hodlValue || initCLMM.lpValue;
-    _initialSolAmount = initCLMM.volatileQuantity;
-    _initialUsdcAmount = initCLMM.amountUSDC || new Decimal(0);
+
+
     initialIlUsd = initCLMM.ilUSD || new Decimal(0);
     lastRangeStatus = initCLMM.rangeStatus || 'IN_RANGE';
   } else {
     const initSimp = calculateLPPosition(state.totalCapital, state.volatileAllocation, entryPrice, entryPrice);
     initialSolExposure = initSimp.currentVolatileValue;
-    _initialLpValue = initSimp.lpValue;
+
     initialHodlValue = initSimp.lpValue;
-    _initialSolAmount = initSimp.volatileQuantity;
-    _initialUsdcAmount = initSimp.initialStableValue;
+
+
   }
 
   // Initial Hedge
@@ -151,9 +151,9 @@ export function runBacktest(state: CalculatorState, historicalData: PricePoint[]
 
     // 2. Income & Funding
     let feeIncomeThisStep = new Decimal(0);
-    if (state.feeModelType === 'ESTIMATED' && point.volume) {
-      feeIncomeThisStep = estimateFees(point.volume, state.poolFeeRate, state.estimatedLPShare, lpResult.rangeStatus || 'IN_RANGE');
-    } else if (state.feeModelType === 'MANUAL') {
+    if (state.feeModelType !== 'MANUAL') {
+      feeIncomeThisStep = estimateFees(state.feeModelType, lpResult.rangeStatus || 'IN_RANGE', state.poolFeeRate, state.estimatedLPShare, point.volume, undefined, state.lpFeeIncome / historicalData.length);
+    } else {
       // Flat fee divided across steps
       feeIncomeThisStep = new Decimal(state.lpFeeIncome).div(historicalData.length);
     }

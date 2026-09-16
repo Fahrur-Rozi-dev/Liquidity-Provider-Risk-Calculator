@@ -55,10 +55,10 @@ export function generateScenarios(state: CalculatorState, priceChangesPercent: n
       lpResult,
       hedgeResult,
       state.lpFeeIncome,
-      state.fundingCost,
-      state.openShortCost,
-      state.closeShortCost,
-      state.rebalanceCost,
+      0,
+      0,
+      0,
+      0,
       state.totalCapital
     );
 

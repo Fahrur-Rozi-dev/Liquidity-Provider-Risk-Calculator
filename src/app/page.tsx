@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { CalculatorState } from "@/types";
+import { CalculatorState, PricePoint } from "@/types";
 import { InputForm } from "@/components/InputForm";
 import { BacktestReport } from "@/components/BacktestReport";
 import { runBacktest } from "@/lib/simulation/backtest";
@@ -43,8 +43,7 @@ const INITIAL_STATE: CalculatorState = {
 
   fundingRatePerStep: 0,
 
-  simulationPath: [],
-  historicalData: [], fundingCost: 0, openShortCost: 0, closeShortCost: 0, rebalanceCost: 0
+  simulationPath: [], historicalData: [],
 };
 
 export default function Home() {
