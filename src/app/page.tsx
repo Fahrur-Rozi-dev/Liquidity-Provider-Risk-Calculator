@@ -3,14 +3,8 @@
 import React, { useState, useMemo } from "react";
 import { CalculatorState } from "@/types";
 import { InputForm } from "@/components/InputForm";
-import { Dashboard } from "@/components/Dashboard";
-import { ScenarioTable } from "@/components/ScenarioTable";
-import { Charts } from "@/components/Charts";
-import { generateScenarios } from "@/lib/calculations/scenarios";
-import { calculateLPPosition } from "@/lib/calculations/lp";
-import { calculateCLMM } from "@/lib/calculations/clmm";
-import { calculateAutoShortNotional, calculateHedge } from "@/lib/calculations/hedge";
-import { calculateTotalPnL } from "@/lib/calculations/pnl";
+import { SimulationResults } from "@/components/SimulationResults";
+import { runSimulation } from "@/lib/simulation/simulator";
 
 const INITIAL_STATE: CalculatorState = {
   modelType: 'clmm',
@@ -37,12 +31,24 @@ const INITIAL_STATE: CalculatorState = {
   rebalanceCost: 0,
 
   targetPrice: 100,
+
+  // Phase 3 Configuration
+  strategyMode: 'THRESHOLD',
+  targetHedgeRatio: 75,
+  rebalanceLowerThreshold: 60,
+  rebalanceUpperThreshold: 90,
+  minimumRebalanceNotional: 0,
+  rebalanceCooldownSteps: 0,
+  rebalanceFeeRate: 0.05,
+  slippageRate: 0.05,
+  fundingRatePerStep: 0,
+  simulationPath: [105, 110, 115, 120, 125, 130, 140, 150]
 };
 
 export default function Home() {
   const [state, setState] = useState<CalculatorState>(INITIAL_STATE);
 
-  const handleChange = (field: keyof CalculatorState, value: string | number | boolean) => {
+  const handleChange = (field: keyof CalculatorState, value: string | number | boolean | number[]) => {
     setState(prev => {
       const next = { ...prev, [field]: value };
 
@@ -62,65 +68,21 @@ export default function Home() {
     setState(INITIAL_STATE);
   };
 
-  const currentResult = useMemo(() => {
-    let lpResult;
-    if (state.modelType === 'clmm') {
-      lpResult = calculateCLMM(
-        state.totalCapital,
-        state.entryPrice,
-        state.lowerPrice,
-        state.upperPrice,
-        state.entryPrice
-      );
-    } else {
-      lpResult = calculateLPPosition(
-        state.totalCapital,
-        state.volatileAllocation,
-        state.entryPrice,
-        state.entryPrice
-      );
-    }
-
-    let shortNotional = state.manualShortNotional;
-    if (state.isAutoShortNotional) {
-      shortNotional = calculateAutoShortNotional(
-        lpResult.initialVolatileValue,
-        state.hedgeRatio
-      ).toNumber();
-    }
-
-    const hedgeResult = calculateHedge(
-      shortNotional,
-      state.shortEntryPrice,
-      state.entryPrice,
-      lpResult.currentVolatileValue
-    );
-
-    return calculateTotalPnL(
-      lpResult,
-      hedgeResult,
-      state.lpFeeIncome,
-      state.fundingCost,
-      state.openShortCost,
-      state.closeShortCost,
-      state.rebalanceCost,
-      state.totalCapital
-    );
+  const simulatedResults = useMemo(() => {
+    return {
+      fixed: runSimulation({ ...state, strategyMode: 'FIXED' }),
+      dynamic: runSimulation({ ...state, strategyMode: 'DYNAMIC' }),
+      threshold: runSimulation({ ...state, strategyMode: 'THRESHOLD' }),
+    };
   }, [state]);
-
-  const scenarios = useMemo(() => {
-    return generateScenarios(state);
-  }, [state]);
-
-  const isClmm = state.modelType === 'clmm';
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 font-sans p-4 sm:p-8 md:p-12">
       <div className="max-w-7xl mx-auto space-y-8">
 
         <header className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight">LP Risk & Hedge Calculator</h1>
-          <p className="text-zinc-500 mt-1">Simulate concentrated liquidity baseline exposure with short hedges.</p>
+          <h1 className="text-2xl font-bold tracking-tight">LP Risk & Dynamic Hedge Simulator</h1>
+          <p className="text-zinc-500 mt-1">Simulate deterministic paths for Fixed, Dynamic, and Threshold hedging over Concentrated Liquidity.</p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -134,14 +96,16 @@ export default function Home() {
           </div>
 
           <div className="lg:col-span-8 space-y-8">
-            <Dashboard
-              state={state}
-              result={currentResult}
-            />
-
-            <Charts scenarios={scenarios} isClmm={isClmm} />
-
-            <ScenarioTable scenarios={scenarios} isClmm={isClmm} />
+            {state.simulationPath.length > 0 ? (
+              <SimulationResults
+                state={state}
+                results={simulatedResults}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center p-12 text-zinc-500 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 border-dashed">
+                <p>Please enter a simulation price path to view results.</p>
+              </div>
+            )}
           </div>
 
         </div>
