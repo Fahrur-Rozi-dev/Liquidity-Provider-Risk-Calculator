@@ -3,8 +3,8 @@
 import React, { useState, useMemo } from "react";
 import { CalculatorState } from "@/types";
 import { InputForm } from "@/components/InputForm";
-import { SimulationResults } from "@/components/SimulationResults";
-import { runSimulation } from "@/lib/simulation/simulator";
+import { BacktestReport } from "@/components/BacktestReport";
+import { runBacktest } from "@/lib/simulation/backtest";
 
 const INITIAL_STATE: CalculatorState = {
   modelType: 'clmm',
@@ -23,39 +23,40 @@ const INITIAL_STATE: CalculatorState = {
   isAutoShortNotional: true,
   manualShortNotional: 75,
 
-  lpFeeIncome: 0,
-  fundingCost: 0,
-
-  openShortCost: 0,
-  closeShortCost: 0,
-  rebalanceCost: 0,
-
   targetPrice: 100,
 
-  // Phase 3 Configuration
   strategyMode: 'THRESHOLD',
   targetHedgeRatio: 75,
   rebalanceLowerThreshold: 60,
   rebalanceUpperThreshold: 90,
   minimumRebalanceNotional: 0,
   rebalanceCooldownSteps: 0,
+
   rebalanceFeeRate: 0.05,
   slippageRate: 0.05,
+  gasCostPerRebalance: 0,
+
+  feeModelType: 'MANUAL',
+  lpFeeIncome: 0,
+  poolFeeRate: 0.25,
+  estimatedLPShare: 0.01,
+
   fundingRatePerStep: 0,
-  simulationPath: [105, 110, 115, 120, 125, 130, 140, 150]
+
+  simulationPath: [],
+  historicalData: [], fundingCost: 0, openShortCost: 0, closeShortCost: 0, rebalanceCost: 0
 };
 
 export default function Home() {
   const [state, setState] = useState<CalculatorState>(INITIAL_STATE);
 
-  const handleChange = (field: keyof CalculatorState, value: string | number | boolean | number[]) => {
+  const handleChange = (field: keyof CalculatorState, value: string | number | boolean | number[] | PricePoint[]) => {
     setState(prev => {
       const next = { ...prev, [field]: value };
 
       if (field === 'volatileAllocation') {
         next.stableAllocation = 100 - (value as number);
       }
-
       if (field === 'entryPrice' && prev.entryPrice === prev.shortEntryPrice) {
         next.shortEntryPrice = value as number;
       }
@@ -68,11 +69,13 @@ export default function Home() {
     setState(INITIAL_STATE);
   };
 
-  const simulatedResults = useMemo(() => {
+  // Run backtests if data is available
+  const backtestResults = useMemo(() => {
+    if (state.historicalData.length === 0) return null;
     return {
-      fixed: runSimulation({ ...state, strategyMode: 'FIXED' }),
-      dynamic: runSimulation({ ...state, strategyMode: 'DYNAMIC' }),
-      threshold: runSimulation({ ...state, strategyMode: 'THRESHOLD' }),
+      fixed: runBacktest({ ...state, strategyMode: 'FIXED' }, state.historicalData),
+      dynamic: runBacktest({ ...state, strategyMode: 'DYNAMIC' }, state.historicalData),
+      threshold: runBacktest({ ...state, strategyMode: 'THRESHOLD' }, state.historicalData),
     };
   }, [state]);
 
@@ -81,8 +84,8 @@ export default function Home() {
       <div className="max-w-7xl mx-auto space-y-8">
 
         <header className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight">LP Risk & Dynamic Hedge Simulator</h1>
-          <p className="text-zinc-500 mt-1">Simulate deterministic paths for Fixed, Dynamic, and Threshold hedging over Concentrated Liquidity.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Historical Backtesting Engine</h1>
+          <p className="text-zinc-500 mt-1">Upload CSV data to replay historical performance of deterministic hedging strategies over CLMM.</p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -96,14 +99,14 @@ export default function Home() {
           </div>
 
           <div className="lg:col-span-8 space-y-8">
-            {state.simulationPath.length > 0 ? (
-              <SimulationResults
+            {backtestResults ? (
+              <BacktestReport
                 state={state}
-                results={simulatedResults}
+                results={backtestResults}
               />
             ) : (
               <div className="flex flex-col items-center justify-center p-12 text-zinc-500 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 border-dashed">
-                <p>Please enter a simulation price path to view results.</p>
+                <p>Please upload a CSV file with historical data to run the backtest.</p>
               </div>
             )}
           </div>

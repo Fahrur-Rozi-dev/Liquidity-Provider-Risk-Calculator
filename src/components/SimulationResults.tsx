@@ -1,5 +1,5 @@
 import React from 'react';
-import { SimulationResult, CalculatorState, SimulationMetrics } from '@/types';
+import { SimulationResult, CalculatorState, BacktestMetrics } from '@/types';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, ReferenceLine, AreaChart, Area
@@ -76,7 +76,7 @@ export function SimulationResults({ state, results }: Props) {
                     {row.label}
                   </td>
                   {(['fixed', 'dynamic', 'threshold'] as const).map(mode => {
-                    const val = results[mode].metrics[row.key as keyof SimulationMetrics] as number;
+                    const val = results[mode].metrics[row.key as keyof BacktestMetrics] as number;
                     return (
                       <td key={mode} className={`px-4 py-2 text-right ${row.isBold ? 'font-bold' : ''}`}>
                         {row.isCurrency && val < 0 ? '-' : ''}

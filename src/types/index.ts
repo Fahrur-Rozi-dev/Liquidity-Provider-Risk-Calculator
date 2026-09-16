@@ -2,10 +2,37 @@ import Decimal from "decimal.js";
 
 export type ModelType = 'simplified' | 'clmm';
 export type RangeStatus = 'BELOW_RANGE' | 'IN_RANGE' | 'ABOVE_RANGE';
-
-// --- Phase 3 Types ---
-
 export type HedgeStrategyMode = "FIXED" | "DYNAMIC" | "THRESHOLD";
+
+// --- Phase 4 Types: Data ---
+export interface PricePoint {
+  timestamp: number;
+  price: number;
+  volume?: number;
+  fundingRate?: number;
+}
+
+export interface FundingPoint {
+  timestamp: number;
+  rate: Decimal;
+}
+
+export type FeeModelType = 'MANUAL' | 'ESTIMATED';
+export type IntervalType = 'IRREGULAR_INTERVAL' | string;
+
+export interface MarketDataSummary {
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  duplicateRows: number;
+  firstTimestamp: number;
+  lastTimestamp: number;
+  minPrice: number;
+  maxPrice: number;
+  interval: IntervalType;
+}
+
+// --- Phase 3 & 4 Types: Engine ---
 
 export interface HedgeTranche {
   id: string;
@@ -24,22 +51,24 @@ export interface RebalanceEvent {
   newHedgeRatio: Decimal;
   tradingCost: Decimal;
   slippageCost: Decimal;
+  gasCost: Decimal;
   realizedPnL: Decimal;
 }
 
 export interface SimulationSnapshot {
   stepIndex: number;
+  timestamp: number;
   price: number;
 
-  // LP
   amountSOL: number;
   amountUSDC: number;
   lpValue: number;
   lpPnL: number;
   hodlValue: number;
+  hodlPnL: number;
   ilUSD: number;
+  ilPercent: number;
 
-  // Hedge
   shortNotional: number;
   shortPnL: number;
   effectiveHedgeRatio: number | null;
@@ -47,105 +76,125 @@ export interface SimulationSnapshot {
   netDeltaUSD: number;
   netDeltaPercent: number;
 
-  // Rebalance
   rebalanceTriggered: boolean;
   hedgeAdjustment: number;
   rebalanceCost: number;
   slippageCost: number;
+  gasCost: number;
 
-  // Funding
   fundingCost: number;
+  feeIncome: number;
 
-  // Combined
   combinedPnL: number;
   cumulativePnL: number;
+  equity: number;
 }
 
-export interface SimulationMetrics {
-  // LP Metrics
+export interface BacktestMetrics {
+  // Config
   initialCapital: number;
-  finalLpValue: number;
-  lpPnL: number;
-  hodlValue: number;
-  ilUSD: number;
 
-  // Hedge Metrics
-  initialShort: number;
-  finalShort: number;
-  totalShortPnL: number;
-  realizedShortPnL: number;
-  unrealizedShortPnL: number;
+  // Return
+  finalEquity: number;
+  totalReturnPercent: number;
+  annualizedReturnPercent: number | null;
+
+  // PnL Breakdown
+  lpPnL: number;
+  shortPnL: number;
+  feeIncome: number;
+  fundingPaid: number;
+  rebalanceFees: number;
+  slippage: number;
+  gasCosts: number;
+  totalHedgeTradingCosts: number;
+  combinedPnL: number;
+
+  // Risk & Drawdown
+  maxDrawdownUSD: number;
+  maxDrawdownPercent: number;
+  volatilityAnnualized: number | null;
+  sharpeRatio: number | null;
+  sortinoRatio: number | null;
+  winRatePercent: number;
+
+  // Exposure & Range
+  timeInRangePercent: number;
+  timeBelowRangePercent: number;
+  timeAboveRangePercent: number;
   avgHedgeRatio: number;
   minHedgeRatio: number;
   maxHedgeRatio: number;
-
-  // Cost Metrics
-  totalFundingPaid: number;
-  totalRebalanceFees: number;
-  totalSlippage: number;
-  totalHedgeTradingCosts: number;
-
-  // Risk Metrics
   maxAbsNetDelta: number;
-  maxPositiveNetDelta: number;
-  maxNegativeNetDelta: number;
-  maxHedgeError: number;
-  numberOfRebalances: number;
-  totalNotionalTraded: number;
+  numberOfRangeEntries: number;
 
-  // Combined Metrics
-  combinedPnL: number;
-  totalNetPnL: number; // combinedPnL + lpFees - funding - tradingCosts
+  // IL & Rebalance
+  initialIL: number;
+  minILPercent: number;
+  maxILPercent: number;
+  finalILPercent: number;
+  avgILPercent: number;
+
+  numberOfRebalances: number;
+  totalHedgeNotionalTraded: number;
+  turnover: number;
 }
 
 export interface SimulationResult {
   snapshots: SimulationSnapshot[];
   events: RebalanceEvent[];
-  metrics: SimulationMetrics;
+  metrics: BacktestMetrics;
+  warnings: string[];
 }
 
 // --- Combined State ---
 export interface CalculatorState {
+  fundingCost: number;
+  openShortCost: number;
+  closeShortCost: number;
+  rebalanceCost: number;
   modelType: ModelType;
   pairName: string;
   totalCapital: number;
+
   volatileAllocation: number;
   stableAllocation: number;
+
   entryPrice: number;
   lowerPrice: number;
   upperPrice: number;
 
-  // Base Hedge
   hedgeRatio: number;
   shortEntryPrice: number;
   isAutoShortNotional: boolean;
   manualShortNotional: number;
 
-  // Base Costs
-  lpFeeIncome: number;
-  fundingCost: number;
-  openShortCost: number;
-  closeShortCost: number;
-  rebalanceCost: number;
-
-  // Single step target
   targetPrice: number;
 
-  // --- Phase 3 Strategy Config ---
   strategyMode: HedgeStrategyMode;
-  targetHedgeRatio: number; // Phase 3 target
-  rebalanceLowerThreshold: number; // e.g. 60
-  rebalanceUpperThreshold: number; // e.g. 90
-  minimumRebalanceNotional: number; // e.g. 5
+  targetHedgeRatio: number;
+  rebalanceLowerThreshold: number;
+  rebalanceUpperThreshold: number;
+  minimumRebalanceNotional: number;
   rebalanceCooldownSteps: number;
 
-  // Phase 3 Costs
-  rebalanceFeeRate: number; // e.g. 0.05
-  slippageRate: number; // e.g. 0.05
-  fundingRatePerStep: number; // e.g. 0.01
+  // Costs & Funding
+  rebalanceFeeRate: number;
+  slippageRate: number;
+  gasCostPerRebalance: number;
 
-  // Phase 3 Path
-  simulationPath: number[];
+  feeModelType: FeeModelType;
+  lpFeeIncome: number; // Manual
+  poolFeeRate: number; // Estimated
+  estimatedLPShare: number; // Estimated
+
+  fundingRatePerStep: number;
+
+  // Phase 4 Historical Path
+  startDate?: number;
+  endDate?: number;
+  historicalData: PricePoint[];
+  simulationPath: number[]; // fallback for Phase 3 simple logic
 }
 
 // --- Existing Phase 1/2 Types ---

@@ -1,14 +1,17 @@
-import React, { ChangeEvent } from "react";
-import { CalculatorState } from "@/types";
-import { Settings, RefreshCw } from "lucide-react";
+import React, { ChangeEvent, useRef } from "react";
+import { CalculatorState, PricePoint } from "@/types";
+import { Settings, RefreshCw, Upload } from "lucide-react";
+import { parseHistoricalCSV } from "@/lib/data/csvProvider";
 
 interface InputFormProps {
   state: CalculatorState;
-  onChange: (field: keyof CalculatorState, value: string | number | boolean | number[]) => void;
+  onChange: (field: keyof CalculatorState, value: string | number | boolean | number[] | PricePoint[]) => void;
   onReset: () => void;
 }
 
 export function InputForm({ state, onChange, onReset }: InputFormProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
 
@@ -22,10 +25,28 @@ export function InputForm({ state, onChange, onReset }: InputFormProps) {
     }
   };
 
-  const handlePathChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    const lines = e.target.value.split('\n');
-    const path = lines.map(l => parseFloat(l.trim())).filter(n => !isNaN(n) && n > 0);
-    onChange('simulationPath', path);
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      if (text) {
+        const { data, warnings } = parseHistoricalCSV(text);
+        if (warnings.length > 0) {
+          console.warn("CSV Import Warnings:", warnings);
+          alert(`CSV Import Warnings:\n${warnings.join('\n')}`);
+        }
+        if (data.length > 0) {
+          onChange('historicalData', data);
+        }
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -44,6 +65,30 @@ export function InputForm({ state, onChange, onReset }: InputFormProps) {
       </div>
 
       <div className="space-y-6">
+
+        {/* Historical Data Source */}
+        <div>
+          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded flex justify-between">
+            <span>Historical Data Source</span>
+          </h3>
+          <div className="border border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg p-4 text-center hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="w-6 h-6 mx-auto mb-2 text-zinc-400" />
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">Upload CSV</p>
+            <p className="text-xs text-zinc-500 mt-1">Must contain timestamp and price headers</p>
+            <input
+              type="file"
+              accept=".csv"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+            />
+          </div>
+          {state.historicalData.length > 0 && (
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 text-center">
+              Loaded {state.historicalData.length} price points
+            </p>
+          )}
+        </div>
 
         {/* Model Selector */}
         <div>
@@ -271,6 +316,17 @@ export function InputForm({ state, onChange, onReset }: InputFormProps) {
                />
             </div>
             <div>
+               <label className="block text-xs text-zinc-500 mb-1">Gas Cost per Reb. (USD)</label>
+               <input
+                 type="number"
+                 name="gasCostPerRebalance"
+                 value={state.gasCostPerRebalance}
+                 onChange={handleChange}
+                 step="0.01"
+                 className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+               />
+            </div>
+            <div>
               <label className="block text-xs text-zinc-500 mb-1">
                 Funding Rate / Step (%)
               </label>
@@ -283,35 +339,63 @@ export function InputForm({ state, onChange, onReset }: InputFormProps) {
                 className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">LP Fees (Total USD)</label>
-              <input
-                type="number"
-                name="lpFeeIncome"
-                value={state.lpFeeIncome}
-                onChange={handleChange}
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
-            </div>
           </div>
         </div>
 
-        {/* Simulation Path Editor */}
+        {/* LP Fees Models */}
         <div>
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded flex justify-between">
-            <span>Simulation Path (Absolute Prices)</span>
+          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded">
+            LP Fee Model
           </h3>
-          <textarea
-            className="w-full h-32 px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            value={state.simulationPath.join('\n')}
-            onChange={handlePathChange}
-            placeholder="Enter one price per line..."
-          />
-          <div className="flex gap-2 mt-2">
-            <button type="button" onClick={() => onChange('simulationPath', [105, 110, 115, 120, 125, 130, 140, 150])} className="text-[10px] px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded">Uptrend</button>
-            <button type="button" onClick={() => onChange('simulationPath', [95, 90, 85, 80, 75, 70, 60, 50])} className="text-[10px] px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded">Downtrend</button>
-            <button type="button" onClick={() => onChange('simulationPath', [110, 120, 110, 100, 90, 80, 90, 100])} className="text-[10px] px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded">Mean Reversion</button>
-            <button type="button" onClick={() => onChange('simulationPath', [115, 95, 125, 85, 110, 90, 105, 100])} className="text-[10px] px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded">Volatile</button>
+          <div className="flex gap-4 mb-4">
+             <label className="text-sm flex items-center gap-2">
+               <input type="radio" name="feeModelType" value="MANUAL" checked={state.feeModelType === 'MANUAL'} onChange={() => onChange('feeModelType', 'MANUAL')} className="text-indigo-500 focus:ring-indigo-500" />
+               Manual Flat
+             </label>
+             <label className="text-sm flex items-center gap-2">
+               <input type="radio" name="feeModelType" value="ESTIMATED" checked={state.feeModelType === 'ESTIMATED'} onChange={() => onChange('feeModelType', 'ESTIMATED')} className="text-indigo-500 focus:ring-indigo-500" />
+               Volume Estimated
+             </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {state.feeModelType === 'MANUAL' ? (
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">LP Fees (Total USD)</label>
+                <input
+                  type="number"
+                  name="lpFeeIncome"
+                  value={state.lpFeeIncome}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Pool Fee Rate (%)</label>
+                  <input
+                    type="number"
+                    name="poolFeeRate"
+                    value={state.poolFeeRate}
+                    onChange={handleChange}
+                    step="0.01"
+                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Estimated LP Share (%)</label>
+                  <input
+                    type="number"
+                    name="estimatedLPShare"
+                    value={state.estimatedLPShare}
+                    onChange={handleChange}
+                    step="0.01"
+                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
 
