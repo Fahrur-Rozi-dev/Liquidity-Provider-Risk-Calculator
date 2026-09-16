@@ -3,10 +3,6 @@ import { TotalResult, LPResult, HedgeResult } from "@/types";
 
 /**
  * Calculates Total PnL incorporating LP result, Hedge result, fees, funding, and costs.
- *
- * Assumptions:
- * - totalPnL = assetPnL + shortPnL + lpFeeIncome - fundingCost - tradingCosts
- * - fundingCost is positive for costs, negative for income. Therefore we subtract it.
  */
 export function calculateTotalPnL(
   lpResult: LPResult,
@@ -27,8 +23,9 @@ export function calculateTotalPnL(
   const tradingCosts = oCost.plus(cCost).plus(rCost);
 
   // Net PnL = Asset PnL + Short PnL + Fees - Funding - Trading Costs
-  const netPnL = lpResult.assetPnL
-    .plus(hedgeResult.shortPnL)
+  const combinedPnL = lpResult.assetPnL.plus(hedgeResult.shortPnL);
+
+  const netPnL = combinedPnL
     .plus(fees)
     .minus(funding)
     .minus(tradingCosts);
@@ -38,6 +35,15 @@ export function calculateTotalPnL(
     ? new Decimal(0)
     : netPnL.dividedBy(tCapital).mul(100);
 
+  // CLMM HODL Benchmarks
+  let hodlPnL: Decimal | undefined;
+  let hodlPlusHedgePnL: Decimal | undefined;
+
+  if (lpResult.hodlValue) {
+    hodlPnL = lpResult.hodlValue.minus(tCapital);
+    hodlPlusHedgePnL = hodlPnL.plus(hedgeResult.shortPnL);
+  }
+
   return {
     lpResult,
     hedgeResult,
@@ -46,5 +52,7 @@ export function calculateTotalPnL(
     tradingCosts,
     netPnL,
     netPnLPercentage,
+    hodlPnL,
+    hodlPlusHedgePnL
   };
 }
