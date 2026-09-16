@@ -1,43 +1,203 @@
 import Decimal from "decimal.js";
 
 export type ModelType = 'simplified' | 'clmm';
-
 export type RangeStatus = 'BELOW_RANGE' | 'IN_RANGE' | 'ABOVE_RANGE';
+export type HedgeStrategyMode = "FIXED" | "DYNAMIC" | "THRESHOLD";
 
+// --- Phase 4 Types: Data ---
+export interface PricePoint {
+  timestamp: number;
+  price: number;
+  volume?: number;
+  fundingRate?: number;
+}
+
+export interface FundingPoint {
+  timestamp: number;
+  rate: Decimal;
+}
+
+export type FeeModelType = 'MANUAL' | 'ESTIMATED';
+export type IntervalType = 'IRREGULAR_INTERVAL' | string;
+
+export interface MarketDataSummary {
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  duplicateRows: number;
+  firstTimestamp: number;
+  lastTimestamp: number;
+  minPrice: number;
+  maxPrice: number;
+  interval: IntervalType;
+}
+
+// --- Phase 3 & 4 Types: Engine ---
+
+export interface HedgeTranche {
+  id: string;
+  entryPrice: Decimal;
+  notional: Decimal;
+  openedAtStep: number;
+}
+
+export interface RebalanceEvent {
+  timestamp: number;
+  price: Decimal;
+  previousShortNotional: Decimal;
+  targetShortNotional: Decimal;
+  hedgeAdjustment: Decimal;
+  previousHedgeRatio: Decimal;
+  newHedgeRatio: Decimal;
+  tradingCost: Decimal;
+  slippageCost: Decimal;
+  gasCost: Decimal;
+  realizedPnL: Decimal;
+}
+
+export interface SimulationSnapshot {
+  stepIndex: number;
+  timestamp: number;
+  price: number;
+
+  amountSOL: number;
+  amountUSDC: number;
+  lpValue: number;
+  lpPnL: number;
+  hodlValue: number;
+  hodlPnL: number;
+  ilUSD: number;
+  ilPercent: number;
+
+  shortNotional: number;
+  shortPnL: number;
+  effectiveHedgeRatio: number | null;
+  targetHedgeRatio: number;
+  netDeltaUSD: number;
+  netDeltaPercent: number;
+
+  rebalanceTriggered: boolean;
+  hedgeAdjustment: number;
+  rebalanceCost: number;
+  slippageCost: number;
+  gasCost: number;
+
+  fundingCost: number;
+  feeIncome: number;
+
+  combinedPnL: number;
+  cumulativePnL: number;
+  equity: number;
+}
+
+export interface BacktestMetrics {
+  // Config
+  initialCapital: number;
+
+  // Return
+  finalEquity: number;
+  totalReturnPercent: number;
+  annualizedReturnPercent: number | null;
+
+  // PnL Breakdown
+  lpPnL: number;
+  shortPnL: number;
+  feeIncome: number;
+  fundingPaid: number;
+  rebalanceFees: number;
+  slippage: number;
+  gasCosts: number;
+  totalHedgeTradingCosts: number;
+  combinedPnL: number;
+
+  // Risk & Drawdown
+  maxDrawdownUSD: number;
+  maxDrawdownPercent: number;
+  volatilityAnnualized: number | null;
+  sharpeRatio: number | null;
+  sortinoRatio: number | null;
+  winRatePercent: number;
+
+  // Exposure & Range
+  timeInRangePercent: number;
+  timeBelowRangePercent: number;
+  timeAboveRangePercent: number;
+  avgHedgeRatio: number;
+  minHedgeRatio: number;
+  maxHedgeRatio: number;
+  maxAbsNetDelta: number;
+  numberOfRangeEntries: number;
+
+  // IL & Rebalance
+  initialIL: number;
+  minILPercent: number;
+  maxILPercent: number;
+  finalILPercent: number;
+  avgILPercent: number;
+
+  numberOfRebalances: number;
+  totalHedgeNotionalTraded: number;
+  turnover: number;
+}
+
+export interface SimulationResult {
+  snapshots: SimulationSnapshot[];
+  events: RebalanceEvent[];
+  metrics: BacktestMetrics;
+  warnings: string[];
+}
+
+// --- Combined State ---
 export interface CalculatorState {
+  fundingCost: number;
+  openShortCost: number;
+  closeShortCost: number;
+  rebalanceCost: number;
   modelType: ModelType;
-
   pairName: string;
   totalCapital: number;
 
-  // Used in simplified
-  volatileAllocation: number; // Percentage (e.g., 50 for 50%)
-  stableAllocation: number; // Percentage (e.g., 50 for 50%)
+  volatileAllocation: number;
+  stableAllocation: number;
 
-  // Common
   entryPrice: number;
-
-  // Used in CLMM
   lowerPrice: number;
   upperPrice: number;
 
-  // Hedge
-  hedgeRatio: number; // Percentage (e.g., 75 for 75%)
+  hedgeRatio: number;
   shortEntryPrice: number;
   isAutoShortNotional: boolean;
   manualShortNotional: number;
 
-  // Costs
-  lpFeeIncome: number;
-  fundingCost: number; // Positive is cost, negative is income
-
-  openShortCost: number;
-  closeShortCost: number;
-  rebalanceCost: number;
-
   targetPrice: number;
+
+  strategyMode: HedgeStrategyMode;
+  targetHedgeRatio: number;
+  rebalanceLowerThreshold: number;
+  rebalanceUpperThreshold: number;
+  minimumRebalanceNotional: number;
+  rebalanceCooldownSteps: number;
+
+  // Costs & Funding
+  rebalanceFeeRate: number;
+  slippageRate: number;
+  gasCostPerRebalance: number;
+
+  feeModelType: FeeModelType;
+  lpFeeIncome: number; // Manual
+  poolFeeRate: number; // Estimated
+  estimatedLPShare: number; // Estimated
+
+  fundingRatePerStep: number;
+
+  // Phase 4 Historical Path
+  startDate?: number;
+  endDate?: number;
+  historicalData: PricePoint[];
+  simulationPath: number[]; // fallback for Phase 3 simple logic
 }
 
+// --- Existing Phase 1/2 Types ---
 export interface LPResult {
   initialVolatileValue: Decimal;
   initialStableValue: Decimal;
@@ -45,8 +205,6 @@ export interface LPResult {
   currentVolatileValue: Decimal;
   lpValue: Decimal;
   assetPnL: Decimal;
-
-  // CLMM Specific
   liquidity?: Decimal;
   amountUSDC?: Decimal;
   hodlValue?: Decimal;
@@ -63,7 +221,7 @@ export interface LPResult {
 export interface HedgeResult {
   shortNotional: Decimal;
   shortPnL: Decimal;
-  effectiveHedgeRatio: Decimal; // Can be 0 if unhedged or division by zero prevented
+  effectiveHedgeRatio: Decimal;
   netDirectionalExposure: Decimal;
 }
 
@@ -75,8 +233,6 @@ export interface TotalResult {
   tradingCosts: Decimal;
   netPnL: Decimal;
   netPnLPercentage: Decimal;
-
-  // Benchmark
   hodlPnL?: Decimal;
   hodlPlusHedgePnL?: Decimal;
 }
@@ -87,12 +243,10 @@ export interface ScenarioRow {
   assetValue: number;
   assetPnL: number;
   shortPnL: number;
-  effectiveHedgeRatio: number; // 0 instead of null for easy rendering, UI checks
+  effectiveHedgeRatio: number;
   fees: number;
   costs: number;
   netPnL: number;
-
-  // CLMM specific
   amountSOL?: number;
   amountUSDC?: number;
   lpValue?: number;
@@ -103,5 +257,5 @@ export interface ScenarioRow {
   lpDelta?: number;
   netDelta?: number;
   rangeStatus?: RangeStatus;
-  totalPnLAfterCosts?: number; // combined + fees - costs
+  totalPnLAfterCosts?: number;
 }

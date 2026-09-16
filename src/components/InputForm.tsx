@@ -1,15 +1,18 @@
-import React, { ChangeEvent } from "react";
-import { CalculatorState } from "@/types";
-import { Settings, RefreshCw } from "lucide-react";
+import React, { ChangeEvent, useRef } from "react";
+import { CalculatorState, PricePoint } from "@/types";
+import { Settings, RefreshCw, Upload } from "lucide-react";
+import { parseHistoricalCSV } from "@/lib/data/csvProvider";
 
 interface InputFormProps {
   state: CalculatorState;
-  onChange: (field: keyof CalculatorState, value: string | number | boolean) => void;
+  onChange: (field: keyof CalculatorState, value: string | number | boolean | number[] | PricePoint[]) => void;
   onReset: () => void;
 }
 
 export function InputForm({ state, onChange, onReset }: InputFormProps) {
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
 
     if (type === "checkbox") {
@@ -22,8 +25,32 @@ export function InputForm({ state, onChange, onReset }: InputFormProps) {
     }
   };
 
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      if (text) {
+        const { data, warnings } = parseHistoricalCSV(text);
+        if (warnings.length > 0) {
+          console.warn("CSV Import Warnings:", warnings);
+          alert(`CSV Import Warnings:\n${warnings.join('\n')}`);
+        }
+        if (data.length > 0) {
+          onChange('historicalData', data);
+        }
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+    }
+  };
+
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm overflow-y-auto max-h-[90vh]">
       <div className="flex items-center justify-between mb-6 border-b border-zinc-100 dark:border-zinc-800 pb-4">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <Settings className="w-5 h-5 text-indigo-500" />
@@ -39,7 +66,31 @@ export function InputForm({ state, onChange, onReset }: InputFormProps) {
 
       <div className="space-y-6">
 
-        {/* Mode Selector */}
+        {/* Historical Data Source */}
+        <div>
+          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded flex justify-between">
+            <span>Historical Data Source</span>
+          </h3>
+          <div className="border border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg p-4 text-center hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="w-6 h-6 mx-auto mb-2 text-zinc-400" />
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">Upload CSV</p>
+            <p className="text-xs text-zinc-500 mt-1">Must contain timestamp and price headers</p>
+            <input
+              type="file"
+              accept=".csv"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+            />
+          </div>
+          {state.historicalData.length > 0 && (
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 text-center">
+              Loaded {state.historicalData.length} price points
+            </p>
+          )}
+        </div>
+
+        {/* Model Selector */}
         <div>
           <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded">
             Strategy Model
@@ -68,22 +119,102 @@ export function InputForm({ state, onChange, onReset }: InputFormProps) {
           </div>
         </div>
 
+        {/* Strategy Mode Selector */}
+        <div>
+          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded">
+            Hedge Strategy Mode
+          </h3>
+          <div className="grid grid-cols-3 gap-2">
+            {(['FIXED', 'DYNAMIC', 'THRESHOLD'] as const).map(mode => (
+               <button
+                 key={mode}
+                 onClick={() => onChange('strategyMode', mode)}
+                 className={`py-2 text-xs rounded border ${
+                   state.strategyMode === mode
+                   ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400 font-medium'
+                   : 'bg-white border-zinc-200 text-zinc-600 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400'
+                 }`}
+               >
+                 {mode}
+               </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Hedge Strategy Config */}
+        <div>
+           <div className="grid grid-cols-2 gap-4">
+             <div>
+               <label className="block text-xs text-zinc-500 mb-1">Target Hedge Ratio (%)</label>
+               <input
+                 type="number"
+                 name="targetHedgeRatio"
+                 value={state.targetHedgeRatio}
+                 onChange={handleChange}
+                 min="0"
+                 max="200"
+                 className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+               />
+             </div>
+
+             {state.strategyMode === 'THRESHOLD' && (
+                <>
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Lower Threshold (%)</label>
+                    <input
+                      type="number"
+                      name="rebalanceLowerThreshold"
+                      value={state.rebalanceLowerThreshold}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">Upper Threshold (%)</label>
+                    <input
+                      type="number"
+                      name="rebalanceUpperThreshold"
+                      value={state.rebalanceUpperThreshold}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </>
+             )}
+
+             {(state.strategyMode === 'DYNAMIC' || state.strategyMode === 'THRESHOLD') && (
+               <>
+                 <div>
+                   <label className="block text-xs text-zinc-500 mb-1">Min Rebalance Notional</label>
+                   <input
+                     type="number"
+                     name="minimumRebalanceNotional"
+                     value={state.minimumRebalanceNotional}
+                     onChange={handleChange}
+                     className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                   />
+                 </div>
+                 <div>
+                   <label className="block text-xs text-zinc-500 mb-1">Cooldown Steps</label>
+                   <input
+                     type="number"
+                     name="rebalanceCooldownSteps"
+                     value={state.rebalanceCooldownSteps}
+                     onChange={handleChange}
+                     className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                   />
+                 </div>
+               </>
+             )}
+           </div>
+        </div>
+
         {/* LP Position */}
         <div>
           <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded">
-            LP Position
+            LP Initial State
           </h3>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">Pair</label>
-              <input
-                type="text"
-                name="pairName"
-                value={state.pairName}
-                onChange={handleChange}
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
-            </div>
             <div>
               <label className="block text-xs text-zinc-500 mb-1">Total Capital (USD)</label>
               <input
@@ -129,9 +260,6 @@ export function InputForm({ state, onChange, onReset }: InputFormProps) {
         {/* CLMM Range */}
         {state.modelType === 'clmm' && (
           <div>
-            <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded">
-              Liquidity Range
-            </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-zinc-500 mb-1">Lower Price</label>
@@ -156,113 +284,121 @@ export function InputForm({ state, onChange, onReset }: InputFormProps) {
                 />
               </div>
             </div>
-
-            {state.lowerPrice >= state.upperPrice && (
-              <p className="text-xs text-rose-500 mt-2">Error: Lower price must be less than upper price.</p>
-            )}
           </div>
         )}
 
-        {/* Short Hedge */}
+        {/* Trading Costs & Funding */}
         <div>
           <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded">
-            Short Hedge
-          </h3>
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isAutoShortNotional"
-                name="isAutoShortNotional"
-                checked={state.isAutoShortNotional}
-                onChange={handleChange}
-                className="rounded border-zinc-300 text-indigo-500 focus:ring-indigo-500"
-              />
-              <label htmlFor="isAutoShortNotional" className="text-sm text-zinc-700 dark:text-zinc-300">
-                Auto calculate short notional
-              </label>
-            </div>
-
-            {state.isAutoShortNotional ? (
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-zinc-500">Hedge Ratio (%)</span>
-                  <span className="font-medium">{state.hedgeRatio}%</span>
-                </div>
-                <input
-                  type="range"
-                  name="hedgeRatio"
-                  value={state.hedgeRatio}
-                  onChange={handleChange}
-                  min="0"
-                  max="100"
-                  step="5"
-                  className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
-                />
-                <div className="flex justify-between text-xs text-zinc-400 mt-1">
-                  <span>0%</span>
-                  <span>50%</span>
-                  <span>100%</span>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <label className="block text-xs text-zinc-500 mb-1">Manual Short Notional (USD)</label>
-                <input
-                  type="number"
-                  name="manualShortNotional"
-                  value={state.manualShortNotional}
-                  onChange={handleChange}
-                  min="0"
-                  className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">Short Entry Price</label>
-              <input
-                type="number"
-                name="shortEntryPrice"
-                value={state.shortEntryPrice}
-                onChange={handleChange}
-                min="0"
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Fees & Funding */}
-        <div>
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded">
-            Income & Costs
+            Trading Costs & Funding
           </h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">LP Fees (USD)</label>
-              <input
-                type="number"
-                name="lpFeeIncome"
-                value={state.lpFeeIncome}
-                onChange={handleChange}
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
+               <label className="block text-xs text-zinc-500 mb-1">Rebalance Fee Rate (%)</label>
+               <input
+                 type="number"
+                 name="rebalanceFeeRate"
+                 value={state.rebalanceFeeRate}
+                 onChange={handleChange}
+                 step="0.01"
+                 className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+               />
+            </div>
+            <div>
+               <label className="block text-xs text-zinc-500 mb-1">Slippage Rate (%)</label>
+               <input
+                 type="number"
+                 name="slippageRate"
+                 value={state.slippageRate}
+                 onChange={handleChange}
+                 step="0.01"
+                 className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+               />
+            </div>
+            <div>
+               <label className="block text-xs text-zinc-500 mb-1">Gas Cost per Reb. (USD)</label>
+               <input
+                 type="number"
+                 name="gasCostPerRebalance"
+                 value={state.gasCostPerRebalance}
+                 onChange={handleChange}
+                 step="0.01"
+                 className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+               />
             </div>
             <div>
               <label className="block text-xs text-zinc-500 mb-1">
-                Funding (USD) <span className="text-zinc-400 text-[10px] ml-1">(+ = cost)</span>
+                Funding Rate / Step (%)
               </label>
               <input
                 type="number"
-                name="fundingCost"
-                value={state.fundingCost}
+                name="fundingRatePerStep"
+                value={state.fundingRatePerStep}
                 onChange={handleChange}
+                step="0.01"
                 className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
           </div>
         </div>
+
+        {/* LP Fees Models */}
+        <div>
+          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded">
+            LP Fee Model
+          </h3>
+          <div className="flex gap-4 mb-4">
+             <label className="text-sm flex items-center gap-2">
+               <input type="radio" name="feeModelType" value="MANUAL" checked={state.feeModelType === 'MANUAL'} onChange={() => onChange('feeModelType', 'MANUAL')} className="text-indigo-500 focus:ring-indigo-500" />
+               Manual Flat
+             </label>
+             <label className="text-sm flex items-center gap-2">
+               <input type="radio" name="feeModelType" value="ESTIMATED" checked={state.feeModelType === 'ESTIMATED'} onChange={() => onChange('feeModelType', 'ESTIMATED')} className="text-indigo-500 focus:ring-indigo-500" />
+               Volume Estimated
+             </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {state.feeModelType === 'MANUAL' ? (
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">LP Fees (Total USD)</label>
+                <input
+                  type="number"
+                  name="lpFeeIncome"
+                  value={state.lpFeeIncome}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Pool Fee Rate (%)</label>
+                  <input
+                    type="number"
+                    name="poolFeeRate"
+                    value={state.poolFeeRate}
+                    onChange={handleChange}
+                    step="0.01"
+                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Estimated LP Share (%)</label>
+                  <input
+                    type="number"
+                    name="estimatedLPShare"
+                    value={state.estimatedLPShare}
+                    onChange={handleChange}
+                    step="0.01"
+                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );
