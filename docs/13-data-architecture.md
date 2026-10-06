@@ -109,6 +109,16 @@ MockPoolModel → temporary UI
 RaydiumModel  → future rewrite
 ```
 
+## Data Semantics
+
+- `0` = known/measured zero
+- `null` / unavailable = unknown or not supplied
+- estimated = explicitly marked
+- stale = known data that is not fresh
+- error = provider failure
+
+Never manufacture zeros for unavailable data.
+
 ## Freshness and Fallback
 
 Data-driven features must preserve:
@@ -149,13 +159,19 @@ It must produce:
 
 Scenario calculations must remain deterministic and provider-independent.
 
+## Forward Scenario Architecture
+
+Forward scenario analysis is a core domain capability. It consumes normalized current state, position configuration, scenario assumptions, and optional hedge configuration. It produces deterministic what-if outcomes. It is a projection tool, not a prediction engine.
+
+Scenario logic must remain provider-independent and reusable by Calculator, Hedge, and Historical Analysis.
+
 ## Historical Analysis Architecture
 
 Historical analysis reuses the same domain/scenario engines with historical PricePoint inputs.
 
 It must not create a separate CLMM, LP, or hedge calculation implementation.
 
-Historical results are context, not forecasts.
+Historical results are context, not forecasts. Historical analysis must reuse the same scenario/domain engines rather than creating a separate calculation path.
 
 ## Protocol Separation
 
