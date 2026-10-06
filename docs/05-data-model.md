@@ -36,24 +36,6 @@ The normalized data model separates stable metadata from time-varying observatio
 - fee tier when available
 - data quality metadata
 
-### PricePoint
-- timestamp
-- price
-- source
-- data quality metadata
-
-### LiquiditySnapshot
-- timestamp
-- liquidity
-- source
-- data quality metadata
-
-### FundingPoint
-- timestamp
-- funding rate
-- source
-- data quality metadata
-
 ### LPPosition
 - pool reference
 - lower price
@@ -166,3 +148,4 @@ Phase 3 may use provider → normalization → application service → domain fl
 Realtime data is read-only and normalized before reaching application services or UI.
 
 The UI must never silently present stale data as live.
+\n## Unknown vs Zero\n\n- `0` means known/measured zero.\n- `null` / unavailable means unknown or not supplied.\n- estimated values must be explicitly marked.\n- stale values remain known but must be marked stale.\n\nNever convert unavailable volume, fees, TVL, funding, liquidity, or historical observations into zero.\n
