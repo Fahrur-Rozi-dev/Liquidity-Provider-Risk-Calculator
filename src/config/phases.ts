@@ -34,34 +34,34 @@ export const PHASES: readonly PhaseInfo[] = [
   {
     id: 2,
     name: "Exact CLMM",
-    status: "in-progress",
+    status: "complete",
     routes: ["/calculator"],
     summary:
       "Exact concentrated-liquidity math: sqrt price, liquidity, token amounts, HODL, IL, delta, range status, scenario engine.",
   },
   {
     id: 3,
+    name: "Production Data Foundation",
+    status: "in-progress",
+    routes: ["/pools"],
+    summary:
+      "Normalized data contracts, read-only provider interfaces, Raydium CLMM adapter, deterministic fixtures, pool discovery/detail, calculator integration.",
+  },
+  {
+    id: 4,
     name: "Dynamic Hedge",
     status: "planned",
     routes: ["/hedge"],
     summary:
-      "Fixed/dynamic/threshold hedge, target ratio, tranches, FIFO, funding, costs, cooldown, event log.",
+      "Fixed/dynamic/threshold hedge, target ratio, tranches, FIFO, funding, costs, cooldown, event log — on normalized data and the existing CLMM engine.",
   },
   {
-    id: 4,
+    id: 5,
     name: "Historical Backtest",
     status: "planned",
     routes: ["/backtest"],
     summary:
-      "Sequential replay with no look-ahead: equity, drawdown, Sharpe/Sortino, benchmarks, regimes, exports.",
-  },
-  {
-    id: 5,
-    name: "Real Pool Data",
-    status: "planned",
-    routes: ["/pools"],
-    summary:
-      "Provider adapters, discovery, detail, normalized snapshots, history, fee data, freshness — Raydium CLMM first.",
+      "Sequential replay with no look-ahead: historical provider, equity, drawdown, Sharpe/Sortino, benchmarks, regimes, exports.",
   },
   {
     id: 6,

@@ -137,3 +137,41 @@ export interface DataProvenance {
   estimated: boolean;
   error?: string;
 }
+
+/**
+ * One funding-rate observation (Phase 3 contract, docs/06). Funding stays a
+ * separate model from price PnL (docs/04-math-and-finance.md); no execution
+ * — funding data is read-only market information (docs/09).
+ */
+export interface FundingRatePoint {
+  /** Underlying market symbol, e.g. "SOL-PERP". */
+  symbol: string;
+  /** Funding per interval as a fraction (e.g. 0.0001 = 0.01% per interval). */
+  rate: number;
+  interval: "1h" | "4h" | "8h" | "24h" | "unknown";
+  /** epoch ms of the observation. */
+  timestamp: number;
+  source: string;
+  quality: DataQualityLabel;
+}
+
+/** Validated historical price series (Phase 3 contract; replay lands in Phase 5). */
+export interface PriceHistory {
+  /** Provider- or dataset-specific series identifier. */
+  sourceId: string;
+  points: readonly PricePoint[];
+  fetchedAt: number | null;
+  interval: "unknown" | "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
+  quality: DataQualityLabel;
+}
+
+/** A named historical dataset imported through the validated CSV contract. */
+export interface HistoricalDataset {
+  id: string;
+  label: string;
+  /** Canonical orientation — always "stable-per-volatile" (docs/04). */
+  priceConvention: typeof PRICE_CONVENTION;
+  /** epoch ms when the dataset was imported. */
+  createdAt: number;
+  history: PriceHistory;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -10,6 +10,7 @@ import type { LPPositionConfig } from "@/domain/lp";
 import type { CLMMConfig } from "@/domain/clmm";
 import type { HedgeConfig } from "@/domain/hedge";
 import { computeClmmScenarios, computeScenarios } from "@/services/calculator";
+import { readPoolSelection } from "@/services/poolSelectionStore";
 import { linspace } from "@/utils/array";
 
 import { ClmmResultView } from "./ClmmResultView";
@@ -159,6 +160,24 @@ export function CalculatorWorkspace() {
     [parsed],
   );
 
+  // Apply a provider-derived pool selection (explicit hand-off from /pools).
+  // The banner dispatches "lp-platform:pool-selection-applied"; entry price and
+  // token symbols are updated, range/position stay user-owned (docs/06).
+  useEffect(() => {
+    const onApply = () => {
+      const stored = readPoolSelection();
+      if (!stored) return;
+      setForm((prev) => ({
+        ...prev,
+        volatileSymbol: stored.volatileSymbol,
+        stableSymbol: stored.stableSymbol,
+        entryPrice: String(stored.entryPrice),
+      }));
+    };
+    window.addEventListener("lp-platform:pool-selection-applied", onApply);
+    return () => window.removeEventListener("lp-platform:pool-selection-applied", onApply);
+  }, []);
+
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -170,7 +189,7 @@ export function CalculatorWorkspace() {
   return (
     <div className="space-y-6">
       <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-        {/* Input area — groups per docs/03-design.md (costs/fees group arrives in Phase 3) */}
+        {/* Input area — groups per docs/03-design.md (costs/fees group arrives with the hedge phase) */}
         <div className="space-y-6">
           <Card>
             <CardHeader title="Model" />
@@ -284,7 +303,7 @@ export function CalculatorWorkspace() {
                   unit="% of volatile-side exposure"
                   value={form.hedgeRatio}
                   onChange={(v) => set("hedgeRatio", v)}
-                  hint="Short quantity is fixed at entry. Funding and rebalancing arrive in Phase 3."
+                  hint="Short quantity is fixed at entry. Funding and rebalancing arrive with the hedge phase (Phase 4)."
                 />
               ) : null}
             </div>
@@ -363,13 +382,13 @@ export function CalculatorWorkspace() {
                 "Below the range the position is pure volatile; above it, pure stable; value is continuous at both boundaries.",
                 "HODL benchmark values the initial token quantities at each scenario price; IL = LP value − HODL value (≤ 0 without fees).",
                 "Delta = d(LP value)/dP in volatile units: amount0 below the range, L·(1/√P − 1/√Pb) in range, 0 above. Net delta = LP delta − short quantity.",
-                `Hedge: fixed short sized at entry from the volatile-side exposure; PnL = q · (P0 − P). No funding or rebalance costs yet (Phase 3).`,
+                `Hedge: fixed short sized at entry from the volatile-side exposure; PnL = q · (P0 − P). No funding or rebalance costs yet (hedge phase, Phase 4).`,
                 `All values in ${stable} units; price convention: ${stable} per 1 ${volatile}. Read-only research tool — nothing here connects a wallet or executes anything.`,
               ]
             : [
                 `Constant-product 50/50 pool (x·y = k); LP value V(P) = V0 · √(P / P0).`,
                 `Hedge: fixed short opened at entry on the volatile-side exposure; PnL = q · (P0 − P).`,
-                `Not modeled yet: pool fees, funding, rebalance costs, margin — Phase 3 and later.`,
+                `Not modeled yet: pool fees, funding, rebalance costs, margin — later phases.`,
                 `The exact CLMM model (price ranges, HODL, IL, delta, range status) is available via the model selector — Phase 2.`,
                 `All values in ${stable} units; price convention: ${stable} per 1 ${volatile}.`,
                 `Read-only research tool — nothing here connects a wallet or executes anything.`,

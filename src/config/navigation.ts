@@ -56,7 +56,7 @@ export const ROUTES: readonly AppRoute[] = [
     href: "/hedge",
     label: "Hedge",
     title: "Dynamic Hedge",
-    phaseLabel: "Phase 3",
+    phaseLabel: "Phase 4",
     status: "planned",
     description:
       "Dynamic hedge simulator: fixed, dynamic and threshold-based modes with tranches, funding and rebalance costs.",
@@ -74,7 +74,7 @@ export const ROUTES: readonly AppRoute[] = [
     href: "/backtest",
     label: "Backtest",
     title: "Backtest",
-    phaseLabel: "Phase 4",
+    phaseLabel: "Phase 5",
     status: "planned",
     description:
       "Sequential historical replay of LP and hedge strategies with strict no-look-ahead discipline.",
@@ -92,8 +92,8 @@ export const ROUTES: readonly AppRoute[] = [
     href: "/pools",
     label: "Pools",
     title: "Pools",
-    phaseLabel: "Phase 5",
-    status: "planned",
+    phaseLabel: "Phase 3",
+    status: "in-progress",
     description:
       "Real pool data through a read-only provider abstraction: discovery, detail, normalized snapshots and history.",
     deliverables: [
