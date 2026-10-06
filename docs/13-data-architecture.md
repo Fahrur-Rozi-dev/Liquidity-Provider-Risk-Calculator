@@ -4,6 +4,8 @@
 
 This document defines the data boundary that all future phases must reuse.
 
+The platform is decision-support software, not a trading bot. Data architecture must support current-state analysis, forward scenario projection, historical context, and realtime monitoring without creating separate calculation systems.
+
 ## Flow
 
 ```
@@ -12,6 +14,8 @@ External Public Providers
 Provider Adapters
         ↓
 Normalized Data Contracts
+        ↓
+Application Services
         ↓
 Domain Engines
         ↓
@@ -34,7 +38,8 @@ Providers must not calculate:
 - IL
 - delta
 - hedge PnL
-- backtest performance
+- forward scenario outcomes
+- historical performance metrics
 
 ## Normalized Contracts
 
@@ -45,13 +50,25 @@ The exact TypeScript shapes may evolve, but the concepts are stable:
 - PoolMetadata
 - PoolSnapshot
 - PricePoint
-- FeeTier
 - LiquiditySnapshot
+- FeeTier
 - FundingPoint
-- DataFreshness
+- DataQuality
 - ProviderError
 
 A normalized contract should contain enough information for downstream engines without exposing provider-specific response formats.
+
+## Data Semantics
+
+The following distinction is mandatory:
+
+- `0` = known/measured zero
+- `null` / unavailable = unknown or not supplied
+- estimated = explicitly marked
+- stale = known data that is not fresh
+- error = provider failure
+
+Never manufacture zeros for unavailable data.
 
 ## Provider Interfaces
 
@@ -92,16 +109,53 @@ MockPoolModel → temporary UI
 RaydiumModel  → future rewrite
 ```
 
-## Freshness
+## Freshness and Fallback
 
-Data-driven features should preserve:
+Data-driven features must preserve:
 - source
-- retrievedAt
+- fetchedAt
 - source timestamp when available
 - freshness status
 - provider error state
 
-The UI must never silently represent stale data as live.
+Fallback policy:
+
+1. fresh provider data
+2. recent cached data when explicitly allowed
+3. explicit unavailable/error state
+
+Never silently present cached data as live. If cached data is used, expose that it is cached and when it was last observed.
+
+## Forward Scenario Architecture
+
+Forward scenario analysis is a core domain capability.
+
+It must consume:
+- normalized current pool/market state
+- LP/CLMM position configuration
+- scenario assumptions
+- hedge configuration when applicable
+
+It must produce:
+- scenario state
+- LP value
+- token composition
+- HODL comparison
+- IL
+- delta/exposure
+- hedge PnL when configured
+- combined outcomes
+- explicit assumptions
+
+Scenario calculations must remain deterministic and provider-independent.
+
+## Historical Analysis Architecture
+
+Historical analysis reuses the same domain/scenario engines with historical PricePoint inputs.
+
+It must not create a separate CLMM, LP, or hedge calculation implementation.
+
+Historical results are context, not forecasts.
 
 ## Protocol Separation
 
@@ -115,6 +169,6 @@ Protocol-specific domain engines must remain explicit.
 
 ## Reuse Rule
 
-Calculator, Hedge, Backtest, Analytics, and Realtime must consume the same normalized data and domain engines wherever the underlying concept is the same.
+Calculator, Hedge, Historical Analysis, Analytics, and Realtime must consume the same normalized data and domain engines wherever the underlying concept is the same.
 
 No duplicate calculation paths.
