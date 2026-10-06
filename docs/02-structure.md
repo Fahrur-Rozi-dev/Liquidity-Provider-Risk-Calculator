@@ -20,21 +20,19 @@ UI / Product Workspaces
 
 The calculation/domain layer must not depend on React components or provider SDKs.
 
-## Product Workspaces
+## Route Map
 
 Routes represent product capabilities, not roadmap phases.
 
-```
-/
-/calculator
-/hedge
-/backtest
-/pools
-/analytics
-/monitor
-/alerts
-/settings
-```
+- /
+- /calculator
+- /hedge
+- /backtest
+- /pools
+- /analytics
+- /monitor
+- /alerts
+- /settings
 
 Capabilities are activated and expanded across phases. A route must not be considered owned by a single phase.
 
