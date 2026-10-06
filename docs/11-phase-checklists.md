@@ -33,49 +33,35 @@
 
 ## Phase 3 — Production Data Foundation
 - [ ] Canonical normalized contracts
-- [ ] Pool provider interface
-- [ ] Market/price provider interface where needed
-- [ ] Historical provider interface
-- [ ] Funding provider interface
+- [ ] Pool/market/historical/funding provider interfaces
 - [ ] Fixture providers behind production interfaces
 - [ ] Raydium CLMM adapter
-- [ ] Pool discovery
-- [ ] Pool detail
-- [ ] Pool snapshot normalization
-- [ ] Token metadata normalization
-- [ ] Fee-tier normalization
-- [ ] Historical price/pool contract
+- [ ] Pool discovery/detail
+- [ ] Snapshot normalization
+- [ ] Token/fee normalization
 - [ ] Freshness/data-quality states
 - [ ] Provider validation/errors
 - [ ] Cache/rate-limit boundary
 - [ ] Calculator uses real pool selection
-- [ ] Unit/integration/contract tests
+- [ ] Tests
 
 ## Phase 4 — Forward Scenario & Dynamic Hedge
 ### Forward Scenario
 - [ ] Current-state baseline
 - [ ] User-defined future prices
 - [ ] Price-path scenarios
-- [ ] Below-range / in-range / above-range states
+- [ ] Below/in/above-range outcomes
 - [ ] Token composition
-- [ ] LP value
-- [ ] HODL
-- [ ] IL
-- [ ] Delta/exposure
-- [ ] Hedge PnL
-- [ ] Combined PnL
+- [ ] LP value / HODL / IL / delta
+- [ ] Hedge PnL and combined PnL
 - [ ] Scenario tables/charts
 - [ ] Range sensitivity
 
 ### Dynamic Hedge
-- [ ] Fixed hedge
-- [ ] Dynamic hedge
-- [ ] Threshold hedge
+- [ ] Fixed/dynamic/threshold hedge
 - [ ] Target ratio
-- [ ] Tranches
-- [ ] FIFO
-- [ ] Funding
-- [ ] Costs
+- [ ] Tranches/FIFO
+- [ ] Funding/costs
 - [ ] Cooldown/minimum rebalance
 - [ ] Event log
 - [ ] Residual delta
@@ -84,18 +70,13 @@
 ## Phase 5 — Historical Analysis & Replay
 - [ ] Historical provider
 - [ ] Validated PricePoint series
-- [ ] Historical import where useful
-- [ ] Validation
 - [ ] No look-ahead
-- [ ] Sequential replay
+- [ ] Sequential replay using shared engines
 - [ ] Fees/funding where supported
-- [ ] Equity
-- [ ] Drawdown
-- [ ] Range exposure duration
-- [ ] In/out-of-range analysis
+- [ ] Equity/drawdown
+- [ ] Range exposure and in/out-of-range duration
 - [ ] Historical scenario comparison
-- [ ] Benchmarks
-- [ ] Regime analysis
+- [ ] Benchmarks/regimes
 - [ ] Export
 - [ ] Tests
 
