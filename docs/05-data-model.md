@@ -2,27 +2,57 @@
 
 ## Core Types
 
+The normalized data model separates stable metadata from time-varying observations.
+
 ### Token
 - symbol
 - decimals
 - address
 - chain
 
-### Pool
-- id/address
+### PoolId
+- protocol
+- chain
+- address
+
+### PoolMetadata
+- id
 - protocol
 - chain
 - pool type
 - token0
 - token1
-- fee rate
-- current price
-- liquidity
-- TVL
-- volume
-- fees
-- timestamp
+- fee tier
 - source
+
+### PoolSnapshot
+- pool id
+- observedAt
+- current price
+- liquidity when available
+- TVL when available
+- volume when available
+- fees when available
+- fee tier when available
+- data quality metadata
+
+### PricePoint
+- timestamp
+- price
+- source
+- data quality metadata
+
+### LiquiditySnapshot
+- timestamp
+- liquidity
+- source
+- data quality metadata
+
+### FundingPoint
+- timestamp
+- funding rate
+- source
+- data quality metadata
 
 ### LPPosition
 - pool reference
@@ -41,21 +71,30 @@
 - funding
 - costs
 
-### PricePoint
-- timestamp
-- price
-- source
-- quality/freshness metadata
+### DataQuality
 
-### PoolSnapshot
-- timestamp
-- price
-- TVL
-- liquidity
-- volume
-- fees
-- fee rate
+All externally sourced observations must use one canonical quality model:
+
+- status: `fresh | stale | partial | unavailable | error`
 - source
+- observedAt when available
+- fetchedAt
+- freshness information
+- warnings
+- estimated flag when applicable
+
+Do not invent a separate freshness/error model inside each feature.
+
+## Unknown vs Zero
+
+This is a project-wide invariant:
+
+- `0` means the source measured or calculated a real zero.
+- `null` / unavailable means the value is unknown or not supplied.
+- estimated values must be explicitly marked as estimated.
+- stale values remain known values but must be marked stale.
+
+Never convert unavailable volume, fees, TVL, funding, liquidity, or historical observations into zero merely to simplify UI or calculations.
 
 ## Provider Abstraction
 
@@ -63,23 +102,34 @@ All external data must pass through adapters.
 
 Conceptually:
 
+```ts
 interface PoolDataProvider {
-  getPool(...)
+  discoverPools(...)
+  getPoolMetadata(...)
   getPoolSnapshot(...)
   getPoolHistory(...)
-  searchPools(...)
 }
+```
+
+Other read-only provider interfaces may exist for:
+- market/price data
+- historical data
+- funding data
 
 Do not couple the domain engine directly to a provider SDK.
 
-## Data Quality
-Every external dataset should carry:
-- source
-- fetchedAt
-- observedAt when available
-- freshness
-- estimated flag where relevant
-- error/status
+## Normalization
+
+Normalize:
+- token ordering
+- price orientation
+- decimals
+- timestamps
+- protocol identifiers
+- fee units
+- missing-data semantics
+
+Canonical internal price remains stable-token value per 1 volatile token.
 
 ## Fee Classification
 
@@ -92,19 +142,27 @@ Never mix these concepts:
 
 If position-level fees cannot be observed exactly, show an estimate and expose the methodology.
 
-## Normalization
-Normalize:
+## Data Integrity
+
+Provider adapters must validate:
+- required identifiers
 - token ordering
-- price orientation
 - decimals
+- price orientation
 - timestamps
-- protocol identifiers
 - fee units
+- impossible negative values where the source contract forbids them
 
-Canonical internal price remains stable per volatile.
-
-## Realtime
-Realtime data is read-only and normalized before reaching UI.
+Invalid provider data must fail explicitly or be marked with the appropriate quality state. It must not silently enter the domain engine.
 
 ## Persistence
-Do not add a database merely because a future phase might need one. Introduce persistence when a concrete requirement exists.
+
+Do not add a database merely because a future phase might need one.
+
+Phase 3 may use provider → normalization → application service → domain flow with bounded in-memory/cache behavior. Introduce persistent storage only when a concrete product requirement exists.
+
+## Realtime
+
+Realtime data is read-only and normalized before reaching application services or UI.
+
+The UI must never silently present stale data as live.
