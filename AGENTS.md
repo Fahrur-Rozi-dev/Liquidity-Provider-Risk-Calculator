@@ -11,7 +11,7 @@ Before writing code:
 4. Search the existing code before creating new files or abstractions.
 5. Do NOT read the entire repository by default.
 
-Core docs:
+Core docs include:
 - docs/01-vision.md
 - docs/02-structure.md
 - docs/03-design.md
