@@ -2,51 +2,45 @@
 
 ## High-Level Architecture
 
-UI / Routes
-    ↓
-Application Services / View Models
-    ↓
-Domain Calculation Engines
-    ↓
-Data Providers / Historical Data / Realtime Data
-    ↓
-External APIs
+Data flows from external sources toward normalized contracts, then through application orchestration into reusable domain engines and product workspaces.
 
-The calculation layer must not depend on React components.
+```
+External Public APIs
+        ↓
+Provider Adapters
+        ↓
+Normalized Data Contracts
+        ↓
+Application Services
+        ↓
+Domain Engines
+        ↓
+UI / Product Workspaces
+```
 
-## Route Map
+The calculation/domain layer must not depend on React components or provider SDKs.
 
+## Product Workspaces
+
+Routes represent product capabilities, not roadmap phases.
+
+```
 /
-  Overview
-
 /calculator
-  Phase 1–2 manual LP + CLMM calculator
-
 /hedge
-  Phase 3 dynamic hedge
-
 /backtest
-  Phase 4 historical backtesting
-
 /pools
-  Phase 5 real pool data
-
 /analytics
-  Phase 6 advanced LP analytics
-
 /monitor
-  Phase 7 realtime monitoring
-
 /alerts
-  Phase 8 realtime intelligence and alerts
-
 /settings
-  application/provider/settings
+```
 
-Routes are additive. Never replace one route with another phase.
+Capabilities are activated and expanded across phases. A route must not be considered owned by a single phase.
 
 ## Suggested Source Tree
 
+```
 src/
   app/
     page.tsx
@@ -67,13 +61,16 @@ src/
     clmm/
     lp/
     hedge/
-    backtest/
+    scenario/
+    historical/
     analytics/
     pools/
   providers/
-    historical/
     pool/
-    realtime/
+    market/
+    historical/
+    funding/
+    fixtures/
   services/
   types/
   utils/
@@ -85,6 +82,7 @@ tests/
   fixtures/
 
 docs/
+```
 
 Names may evolve when justified, but the separation of concerns must remain.
 
@@ -100,36 +98,51 @@ Exact concentrated-liquidity math:
 - valuation
 
 ### LP
-Position valuation, HODL benchmark, IL, scenario analysis.
+Position valuation, HODL benchmark, IL, exposure, and scenario analysis.
+
+### Scenario
+Forward-looking what-if analysis over user-defined future prices or paths.
+
+It answers:
+- what happens if price rises/falls?
+- when does the position leave range?
+- how does token composition change?
+- what are LP, hedge, and combined PnL outcomes?
+
+Scenario analysis is a core product capability, not a trading strategy engine.
 
 ### Hedge
 Short positions, hedge ratio, dynamic target, thresholds, tranches, funding, rebalance costs.
 
-### Backtest
-Sequential historical replay. No look-ahead.
+### Historical
+Historical data analysis and sequential replay used to understand how candidate LP configurations would have behaved under past market conditions.
+
+Historical analysis is supporting evidence, not a promise of future performance and not a trading bot.
 
 ### Pools
 Provider abstraction and normalized pool snapshots.
 
 ### Analytics
-LVR, volatility, range efficiency, fee/risk analysis.
+LVR, volatility, range efficiency, fee/risk analysis, and comparative research.
 
 ### Realtime
 Read-only live data and derived state.
 
 ### Alerts
-Rules and recommendations based on realtime derived state.
+Rules and informational recommendations based on realtime derived state.
 
 ## State Design
+
 Do not create one giant global CalculatorState.
 
 Prefer explicit configs:
 - LPPositionConfig
 - CLMMConfig
+- ScenarioConfig
 - HedgeConfig
 - RebalanceConfig
 - FeeConfig
-- BacktestConfig
+- HistoricalAnalysisConfig
 - PoolConfig
 - RealtimeConfig
 
