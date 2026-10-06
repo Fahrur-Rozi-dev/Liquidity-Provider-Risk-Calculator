@@ -31,7 +31,43 @@
 - [ ] Delta
 - [ ] Boundary tests
 
-## Phase 3
+## Phase 3 — Production Data Foundation
+- [ ] Canonical normalized contracts
+- [ ] Pool provider interface
+- [ ] Market/price provider interface where needed
+- [ ] Historical provider interface
+- [ ] Funding provider interface
+- [ ] Fixture providers behind production interfaces
+- [ ] Raydium CLMM adapter
+- [ ] Pool discovery
+- [ ] Pool detail
+- [ ] Pool snapshot normalization
+- [ ] Token metadata normalization
+- [ ] Fee-tier normalization
+- [ ] Historical price/pool contract
+- [ ] Freshness/data-quality states
+- [ ] Provider validation/errors
+- [ ] Cache/rate-limit boundary
+- [ ] Calculator uses real pool selection
+- [ ] Unit/integration/contract tests
+
+## Phase 4 — Forward Scenario & Dynamic Hedge
+### Forward Scenario
+- [ ] Current-state baseline
+- [ ] User-defined future prices
+- [ ] Price-path scenarios
+- [ ] Below-range / in-range / above-range states
+- [ ] Token composition
+- [ ] LP value
+- [ ] HODL
+- [ ] IL
+- [ ] Delta/exposure
+- [ ] Hedge PnL
+- [ ] Combined PnL
+- [ ] Scenario tables/charts
+- [ ] Range sensitivity
+
+### Dynamic Hedge
 - [ ] Fixed hedge
 - [ ] Dynamic hedge
 - [ ] Threshold hedge
@@ -40,42 +76,41 @@
 - [ ] FIFO
 - [ ] Funding
 - [ ] Costs
+- [ ] Cooldown/minimum rebalance
 - [ ] Event log
+- [ ] Residual delta
 - [ ] Tests
 
-## Phase 4
+## Phase 5 — Historical Analysis & Replay
 - [ ] Historical provider
-- [ ] CSV import
+- [ ] Validated PricePoint series
+- [ ] Historical import where useful
 - [ ] Validation
 - [ ] No look-ahead
-- [ ] Replay engine
+- [ ] Sequential replay
+- [ ] Fees/funding where supported
 - [ ] Equity
 - [ ] Drawdown
-- [ ] Sharpe/Sortino
+- [ ] Range exposure duration
+- [ ] In/out-of-range analysis
+- [ ] Historical scenario comparison
 - [ ] Benchmarks
-- [ ] Regimes
+- [ ] Regime analysis
 - [ ] Export
+- [ ] Tests
 
-## Phase 5
-- [ ] Provider abstraction
-- [ ] Raydium CLMM
-- [ ] Pool discovery
-- [ ] Pool detail
-- [ ] Snapshot
-- [ ] History
-- [ ] Fee classification
-- [ ] Freshness/cache
-- [ ] Integration
-
-## Phase 6
+## Phase 6 — Advanced Analytics & Pool Research
+- [ ] Pool explorer
 - [ ] LVR
 - [ ] Volatility
 - [ ] Range efficiency
 - [ ] Fee/risk
 - [ ] Sensitivity
 - [ ] Comparative analytics
+- [ ] Pool comparison
+- [ ] Historical context
 
-## Phase 7
+## Phase 7 — Realtime Monitoring
 - [ ] Realtime price
 - [ ] Realtime pool data
 - [ ] Simulated position state
