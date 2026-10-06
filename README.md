@@ -1,10 +1,10 @@
 # LP Risk & Hedge Intelligence Platform
 
 A **read-only** research and decision-support platform for concentrated liquidity (CLMM) providers:
-position valuation, scenario analysis, LP delta, short/dynamic hedging, historical backtesting,
+position valuation, forward scenario analysis, LP delta, short/dynamic hedging, historical context,
 pool analytics, realtime monitoring, and alerts.
 
-> **Security boundary:** this product never connects wallets, requests keys or seed phrases,
+> **Product focus:** current pool/position → assumptions → forward scenarios → understand risk/reward. Historical data is supporting context, not the primary product.\n\n> **Security boundary:** this product never connects wallets, requests keys or seed phrases,
 > signs transactions, places trades, or rebalances liquidity. Realtime features are
 > DATA + ANALYSIS + ALERTS only.
 
@@ -24,7 +24,7 @@ Read in order before coding:
 10. [docs/10-quality-gates.md](docs/10-quality-gates.md)
 
 Plus: [docs/11-phase-checklists.md](docs/11-phase-checklists.md),
-[docs/12-current-rebuild.md](docs/12-current-rebuild.md).
+[docs/12-current-rebuild.md](docs/12-current-rebuild.md),\n[docs/13-data-architecture.md](docs/13-data-architecture.md).
 
 ## Commands
 
