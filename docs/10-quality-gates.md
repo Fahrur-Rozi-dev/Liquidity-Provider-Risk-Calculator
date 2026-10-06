@@ -22,6 +22,8 @@ A phase is complete only when its acceptance criteria pass.
 - Historical replay, when present, does not look ahead.
 
 ## Data
+- Unknown/unavailable values are never silently converted to zero.
+- Scenario assumptions are explicit and clearly labeled.
 - Provider data normalized.
 - Source and timestamps retained.
 - Fresh/stale/partial/unavailable/error states are explicit.
@@ -30,6 +32,8 @@ A phase is complete only when its acceptance criteria pass.
 - Provider-specific response shapes do not leak into domain/UI contracts.
 
 ## Architecture
+- Forward scenario logic is reusable by Calculator, Hedge, and Historical Analysis where applicable.
+- Fixtures use the same contracts as production providers.
 - UI does not own core financial formulas.
 - Domain calculations are reusable.
 - Forward scenario logic is reusable by Calculator, Hedge, and Historical Analysis where applicable.
