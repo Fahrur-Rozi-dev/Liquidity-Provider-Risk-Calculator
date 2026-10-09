@@ -8,17 +8,16 @@
  * Used for offline development and deterministic tests. Contains no
  * calculation logic.
  *
- * Freshness is intentionally "unavailable" ("No live data"): fixtures are not
- * realtime observations and must never present themselves as live (docs/09).
+ * Quality is intentionally "unavailable": fixtures are not realtime
+ * observations and must never present themselves as live (docs/09, docs/05).
  */
 
-import type { Pool, PoolSnapshot, Token } from "@/types";
-import { providerErrorMessage } from "@/providers/data-quality";
-import type { PoolQuery, ProviderResult } from "@/providers/types";
+import type { PoolMetadata, PoolSnapshot } from "@/types";
+import { errorQuality, providerErrorMessage, unavailableQuality } from "@/providers/data-quality";
+import type { ProviderResult } from "@/providers/types";
 import type { RaydiumPool } from "@/providers/raydium/api";
 import {
-  comparePoolsForDisplay,
-  normalizeRaydiumPool,
+  normalizeRaydiumMetadata,
   normalizeRaydiumSnapshot,
 } from "@/providers/raydium/normalize";
 
@@ -82,102 +81,72 @@ const FIXTURE_RAW_POOLS: readonly RaydiumPool[] = [
   },
 ];
 
-function fixtureProvenance(now: number): ProviderResult<never>["provenance"] {
-  return {
-    source: "fixture",
-    fetchedAt: now,
-    observedAt: null,
-    freshness: "unavailable",
-    estimated: false,
-  };
+const FIXTURE_WARNING = "Deterministic fixture data — not a realtime observation; values are static.";
+
+function fixtureQuality(source: string): ProviderResult<never>["quality"] {
+  return unavailableQuality(source, FIXTURE_WARNING);
 }
 
-/** Applies the shared PoolQuery filters to normalized fixture pools. */
-function applyQuery(pools: readonly Pool[], query: PoolQuery = {}): Pool[] {
-  let result = [...pools];
-  if (query.poolType) {
-    result = result.filter((pool) => pool.poolType === query.poolType);
-  }
-  if (query.minTvlUsd !== undefined) {
-    result = result.filter((pool) => pool.tvlUsd !== null && pool.tvlUsd >= (query.minTvlUsd as number));
-  }
-  if (query.search) {
-    const needle = query.search.trim().toLowerCase();
-    if (needle.length > 0) {
-      result = result.filter((pool) =>
-        [
-          pool.token0.symbol,
-          pool.token1.symbol,
-          pool.token0.address,
-          pool.token1.address,
-          pool.id,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(needle),
-      );
-    }
-  }
-  result.sort(comparePoolsForDisplay);
-  const limit = Math.min(Math.max(query.limit ?? 20, 1), 100);
-  return result.slice(0, limit);
+function fixtureError(source: string, now: number, message: string): ProviderResult<never>["quality"] {
+  return { ...errorQuality(source, now, message), warnings: [FIXTURE_WARNING] };
 }
 
 export class FixturePoolProvider {
   readonly id = "fixture";
   readonly label = "Deterministic fixture (offline)";
 
-  async searchPools(query: PoolQuery = {}): Promise<ProviderResult<Pool[]>> {
-    const now = Date.now();
-    const normalized = FIXTURE_RAW_POOLS.map((raw) => normalizeRaydiumPool(raw)).filter(
-      (pool): pool is Pool => pool !== null,
+  private normalizeAll(): PoolMetadata[] {
+    return FIXTURE_RAW_POOLS.map((raw) => normalizeRaydiumMetadata(raw)).filter(
+      (entry): entry is PoolMetadata => entry !== null,
     );
+  }
+
+  async discoverPools(): Promise<ProviderResult<PoolMetadata[]>> {
+    const now = Date.now();
+    const normalized = this.normalizeAll();
     if (normalized.length !== FIXTURE_RAW_POOLS.length) {
       // A fixture failing canonical normalization is a developer error, not a data error.
       return {
         data: null,
-        provenance: {
-          ...fixtureProvenance(now),
-          freshness: "error",
-          error: providerErrorMessage("validation", "Fixture entry failed canonical normalization."),
-        },
+        quality: fixtureError(
+          "fixture",
+          now,
+          providerErrorMessage("validation", "Fixture entry failed canonical normalization."),
+        ),
       };
     }
-    return { data: applyQuery(normalized, query), provenance: fixtureProvenance(now) };
+    return { data: normalized, quality: fixtureQuality("fixture") };
   }
 
-  async getPoolSnapshot(poolId: string): Promise<ProviderResult<PoolSnapshot>> {
+  async getPoolMetadata(poolKey: string): Promise<ProviderResult<PoolMetadata>> {
     const now = Date.now();
-    const raw = FIXTURE_RAW_POOLS.find((entry) => entry.id === poolId);
+    const metadata = this.normalizeAll().find((entry) => entry.key === poolKey);
+    if (!metadata) {
+      return {
+        data: null,
+        quality: fixtureError("fixture", now, providerErrorMessage("validation", `Pool ${poolKey} not found in fixtures.`)),
+      };
+    }
+    return { data: metadata, quality: fixtureQuality("fixture") };
+  }
+
+  async getPoolSnapshot(poolKey: string): Promise<ProviderResult<PoolSnapshot>> {
+    const now = Date.now();
+    const raw = FIXTURE_RAW_POOLS.find((entry) => entry.id === poolKey);
     if (!raw) {
       return {
         data: null,
-        provenance: {
-          ...fixtureProvenance(now),
-          freshness: "error",
-          error: providerErrorMessage("validation", `Pool ${poolId} not found in fixtures.`),
-        },
+        quality: fixtureError("fixture", now, providerErrorMessage("validation", `Pool ${poolKey} not found in fixtures.`)),
       };
     }
-    const snapshot = normalizeRaydiumSnapshot(raw);
+    const snapshot = normalizeRaydiumSnapshot(raw, now);
     if (!snapshot) {
       return {
         data: null,
-        provenance: {
-          ...fixtureProvenance(now),
-          freshness: "error",
-          error: providerErrorMessage("validation", `Pool ${poolId} failed canonical normalization.`),
-        },
+        quality: fixtureError("fixture", now, providerErrorMessage("validation", `Pool ${poolKey} failed canonical normalization.`)),
       };
     }
-    return { data: snapshot, provenance: fixtureProvenance(now) };
+    // Fixtures are not realtime observations: snapshot quality stays "unavailable".
+    return { data: { ...snapshot, quality: fixtureQuality("fixture") }, quality: fixtureQuality("fixture") };
   }
-}
-
-/** Fixture token metadata export for tests/docs (derived from the raw entries). */
-export function fixtureTokens(): Token[] {
-  return FIXTURE_RAW_POOLS.flatMap((raw) => [
-    { symbol: raw.mintA.symbol, decimals: raw.mintA.decimals, address: raw.mintA.address, chain: "solana" },
-    { symbol: raw.mintB.symbol, decimals: raw.mintB.decimals, address: raw.mintB.address, chain: "solana" },
-  ]);
 }

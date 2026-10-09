@@ -61,7 +61,7 @@ export function PoolSelectionBanner() {
             {stored.volatileSymbol}/{stored.stableSymbol}
           </span>
           <span className="font-mono text-xs tabular-nums">
-            @ {formatNumber(stored.entryPrice, 6)} · fee {formatPercent(stored.feeRate, 3)}
+            @ {formatNumber(stored.entryPrice, 6)} · fee {formatPercent(stored.feeTier, 3)}
           </span>
           <span className="text-xs">
             from <span className="font-mono">{stored.source}</span> — applying sets entry price and

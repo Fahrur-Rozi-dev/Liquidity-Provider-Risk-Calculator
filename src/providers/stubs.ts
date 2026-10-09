@@ -5,10 +5,10 @@
  * the interface and data contract early); their real implementations arrive
  * with the phases that consume them (Phase 5 backtest, Phase 4+ funding).
  * The stubs never fabricate data (docs/07) — every call returns data: null
- * with an explicit provenance error.
+ * with an explicit canonical quality error (docs/05 DataQuality).
  */
 
-import type { FundingRatePoint, PricePoint } from "@/types";
+import type { DataQuality, FundingRatePoint, PricePoint } from "@/types";
 import { providerErrorMessage } from "@/providers/data-quality";
 import type {
   FundingRateProvider,
@@ -16,14 +16,17 @@ import type {
   ProviderResult,
 } from "@/providers/types";
 
-const unavailable = (source: string, message: string): ProviderResult<never>["provenance"] => ({
-  source,
-  fetchedAt: null,
-  observedAt: null,
-  freshness: "unavailable",
-  estimated: false,
-  error: message,
-});
+function unavailable(source: string, message: string): DataQuality {
+  return {
+    status: "unavailable",
+    source,
+    fetchedAt: null,
+    observedAt: null,
+    warnings: [],
+    estimated: false,
+    error: message,
+  };
+}
 
 export class UnavailableHistoricalPriceProvider implements HistoricalPriceProvider {
   readonly id = "unavailable";
@@ -32,7 +35,7 @@ export class UnavailableHistoricalPriceProvider implements HistoricalPriceProvid
   async getHistory(): Promise<ProviderResult<PricePoint[]>> {
     return {
       data: null,
-      provenance: unavailable(
+      quality: unavailable(
         this.id,
         providerErrorMessage(
           "validation",
@@ -50,7 +53,7 @@ export class UnavailableFundingRateProvider implements FundingRateProvider {
   async getFundingRate(symbol: string): Promise<ProviderResult<FundingRatePoint>> {
     return {
       data: null,
-      provenance: unavailable(
+      quality: unavailable(
         this.id,
         providerErrorMessage(
           "validation",

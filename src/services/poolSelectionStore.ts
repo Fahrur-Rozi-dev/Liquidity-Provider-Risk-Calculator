@@ -14,22 +14,23 @@ const STORAGE_KEY = "lp-platform.pool-selection.v1";
 
 /** Flat, serializable snapshot of a pool selection. */
 export interface StoredPoolSelection {
-  poolId: string;
+  /** Canonical pool key (protocol:chain:address). */
+  poolKey: string;
   volatileSymbol: string;
   stableSymbol: string;
   entryPrice: number;
-  feeRate: number;
+  feeTier: number;
   tvlUsd: number | null;
   source: string;
 }
 
 export function toStoredPoolSelection(selection: PoolSelection): StoredPoolSelection {
   return {
-    poolId: selection.pool.id,
+    poolKey: selection.metadata.key,
     volatileSymbol: selection.volatileSymbol,
     stableSymbol: selection.stableSymbol,
     entryPrice: selection.entryPrice,
-    feeRate: selection.feeRate,
+    feeTier: selection.feeTier,
     tvlUsd: selection.tvlUsd,
     source: selection.source,
   };
@@ -50,13 +51,14 @@ function isStoredPoolSelection(value: unknown): value is StoredPoolSelection {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
   return (
-    typeof record.poolId === "string" &&
+    typeof record.poolKey === "string" &&
+    record.poolKey.length > 0 &&
     typeof record.volatileSymbol === "string" &&
     typeof record.stableSymbol === "string" &&
     typeof record.entryPrice === "number" &&
     Number.isFinite(record.entryPrice) &&
     record.entryPrice > 0 &&
-    typeof record.feeRate === "number" &&
+    typeof record.feeTier === "number" &&
     (record.tvlUsd === null || typeof record.tvlUsd === "number") &&
     typeof record.source === "string"
   );

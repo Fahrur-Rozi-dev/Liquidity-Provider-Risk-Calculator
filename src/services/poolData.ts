@@ -5,60 +5,70 @@
  * the domain engines (docs/02, docs/06: no workspace implements its own
  * competing version of a domain calculation). Adapters never leak here:
  * inputs are the shared provider contracts.
+ *
+ * Metadata (stable) and snapshots (observations) are kept separate per
+ * docs/05; a calculator-ready selection is the JOIN of the two.
  */
 
-import type { Pool, PoolSnapshot } from "@/types";
+import type { PoolMetadata, PoolSnapshot } from "@/types";
 import type { PoolDataProvider, PoolQuery, ProviderResult } from "@/providers/types";
+import { compareMetadataForDisplay } from "@/providers/raydium/normalize";
 
 /** Normalized pool discovered by a provider, plus orientation provenance. */
 export interface DiscoveredPool {
-  pool: Pool;
+  metadata: PoolMetadata;
   /** Canonical orientation of the pool (docs/04: stable per 1 volatile). */
   orientation: "stable-per-volatile";
 }
 
-/** A discovered pool ready to seed the calculator inputs. */
+/** A discovered pool joined with its latest snapshot — calculator-ready. */
 export interface PoolSelection {
-  pool: Pool;
+  metadata: PoolMetadata;
   /** Token0 (volatile) symbol, e.g. "SOL". */
   volatileSymbol: string;
   /** Token1 (stable) symbol, e.g. "USDC". */
   stableSymbol: string;
-  /** Canonical entry price: stable per 1 volatile. */
+  /** Canonical entry price from the snapshot: stable per 1 volatile. */
   entryPrice: number;
-  feeRate: number;
+  /** Fee tier from the snapshot when observed, else the stable metadata tier. */
+  feeTier: number;
+  /** Snapshot TVL; null means unknown — never zero (docs/05 Unknown vs Zero). */
   tvlUsd: number | null;
   source: string;
 }
 
 /**
- * Deterministic pool selection: highest TVL among normalized CLMM pools.
- * Pure and synchronous — selection logic stays independent of any provider.
+ * Deterministic pool ordering for display and default selection
+ * (pair symbols, then canonical key). Pure and synchronous.
  */
-export function selectPrimaryPool(pools: readonly DiscoveredPool[]): DiscoveredPool | null {
-  let best: DiscoveredPool | null = null;
-  let bestTvl = -Infinity;
-  for (const candidate of pools) {
-    const tvl = candidate.pool.tvlUsd;
-    if (tvl === null) continue;
-    if (best === null || tvl > bestTvl) {
-      best = candidate;
-      bestTvl = tvl;
-    }
-  }
-  return best;
+export function sortDiscoveredPools(pools: readonly DiscoveredPool[]): DiscoveredPool[] {
+  return [...pools].sort((a, b) => compareMetadataForDisplay(a.metadata, b.metadata));
 }
 
-/** Projects a canonical Pool into a calculator-ready PoolSelection. */
-export function toPoolSelection(pool: Pool): PoolSelection {
+/**
+ * Deterministic primary selection: the first pool in canonical sort order.
+ * TVL-based ranking would require observations for every discovered pool;
+ * providers already rank discovery by liquidity (Raydium sortType=desc).
+ */
+export function selectPrimaryPool(pools: readonly DiscoveredPool[]): DiscoveredPool | null {
+  return sortedFirst(pools);
+}
+
+function sortedFirst(pools: readonly DiscoveredPool[]): DiscoveredPool | null {
+  if (pools.length === 0) return null;
+  return sortDiscoveredPools(pools)[0];
+}
+
+/** Joins metadata with a snapshot into a calculator-ready selection. */
+export function toPoolSelection(metadata: PoolMetadata, snapshot: PoolSnapshot): PoolSelection {
   return {
-    pool,
-    volatileSymbol: pool.token0.symbol,
-    stableSymbol: pool.token1.symbol,
-    entryPrice: pool.currentPrice,
-    feeRate: pool.feeRate,
-    tvlUsd: pool.tvlUsd,
-    source: pool.source,
+    metadata,
+    volatileSymbol: metadata.token0.symbol,
+    stableSymbol: metadata.token1.symbol,
+    entryPrice: snapshot.price,
+    feeTier: snapshot.feeTier ?? metadata.feeTier,
+    tvlUsd: snapshot.tvlUsd,
+    source: metadata.source,
   };
 }
 
@@ -67,23 +77,28 @@ export async function discoverPools(
   provider: PoolDataProvider,
   query: PoolQuery = {},
 ): Promise<ProviderResult<DiscoveredPool[]>> {
-  const result = await provider.searchPools(query);
+  const result = await provider.discoverPools(query);
   if (result.data === null) {
-    return { data: null, provenance: result.provenance };
+    return { data: null, quality: result.quality };
   }
   const discovered = result.data
-    .filter((pool) => pool.poolType === "clmm")
-    .map((pool) => ({ pool, orientation: "stable-per-volatile" as const }));
-  return { data: discovered, provenance: result.provenance };
+    .filter((metadata) => metadata.poolType === "clmm")
+    .map((metadata) => ({ metadata, orientation: "stable-per-volatile" as const }));
+  return { data: discovered, quality: result.quality };
 }
 
-/**
- * Loads a snapshot for a pool the user explicitly selected by id.
- * The pool must be known from discovery first (no provider-side id guessing).
- */
+/** Loads stable metadata for a pool the user explicitly selected (no id guessing). */
+export async function loadPoolMetadata(
+  provider: PoolDataProvider,
+  poolKey: string,
+): Promise<ProviderResult<PoolMetadata>> {
+  return provider.getPoolMetadata(poolKey);
+}
+
+/** Loads a snapshot for a pool the user explicitly selected (no id guessing). */
 export async function loadPoolSnapshot(
   provider: PoolDataProvider,
-  poolId: string,
+  poolKey: string,
 ): Promise<ProviderResult<PoolSnapshot>> {
-  return provider.getPoolSnapshot(poolId);
+  return provider.getPoolSnapshot(poolKey);
 }

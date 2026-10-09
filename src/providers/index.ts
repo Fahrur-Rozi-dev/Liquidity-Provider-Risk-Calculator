@@ -15,25 +15,28 @@ export type {
 } from "./types";
 
 export {
-  assessFreshness,
-  failedProvenance,
-  liveProvenance,
+  assessQuality,
+  errorQuality,
   LIVE_WINDOW_MS,
+  observationQuality,
+  okQuality,
   providerErrorMessage,
+  unavailableQuality,
   validatePriceSeries,
 } from "./data-quality";
 
-export { HttpError, httpGetText, type FetchLike, type HttpResponse } from "./http";
+export { HttpError, httpGetText, type FetchLike, type HttpResponse, clearHttpCache } from "./http";
 
 export { RAYDIUM_API_BASE_URL } from "./raydium/api";
 export {
-  comparePoolsForDisplay,
-  normalizeRaydiumPool,
+  compareMetadataForDisplay,
+  normalizeRaydiumMetadata,
   normalizeRaydiumSnapshot,
   orientRaydiumPool,
+  poolKeyOf,
   QUOTE_MINT_ADDRESSES,
 } from "./raydium/normalize";
-export { RaydiumPoolProvider, describeFetchError, type RaydiumPoolProviderOptions } from "./raydium/pool";
+export { RAYDIUM_SOURCE, RaydiumPoolProvider, type RaydiumPoolProviderOptions } from "./raydium/pool";
 
-export { FixturePoolProvider, fixtureTokens } from "./fixture";
+export { FixturePoolProvider } from "./fixture";
 export { UnavailableFundingRateProvider, UnavailableHistoricalPriceProvider } from "./stubs";

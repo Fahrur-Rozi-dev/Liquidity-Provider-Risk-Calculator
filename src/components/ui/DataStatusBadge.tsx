@@ -1,26 +1,26 @@
 import { cn } from "@/utils/cn";
-import type { DataFreshness } from "@/types";
+import type { DataQualityStatus } from "@/types";
 
 import { Badge, type BadgeVariant } from "./Badge";
 
-const statusConfig: Record<DataFreshness, { label: string; dotClass: string; variant: BadgeVariant }> = {
-  live: { label: "Live", dotClass: "bg-profit", variant: "profit" },
-  updating: { label: "Updating", dotClass: "bg-accent", variant: "accent" },
+/**
+ * Canonical data-status indicator (docs/05 DataQuality, docs/03 Realtime UX).
+ * The colored dot is aria-hidden; state is always conveyed by the text label,
+ * never by color alone.
+ */
+const statusConfig: Record<DataQualityStatus, { label: string; dotClass: string; variant: BadgeVariant }> = {
+  fresh: { label: "Live", dotClass: "bg-profit", variant: "profit" },
   stale: { label: "Stale", dotClass: "bg-warn", variant: "warn" },
+  partial: { label: "Partial", dotClass: "bg-accent", variant: "accent" },
   error: { label: "Provider error", dotClass: "bg-loss", variant: "loss" },
   unavailable: { label: "No live data", dotClass: "bg-faint", variant: "muted" },
 };
 
-/**
- * Freshness indicator for realtime views (docs/03-design.md, docs/09-realtime-boundaries.md).
- * The colored dot is aria-hidden; state is always conveyed by the text label,
- * never by color alone.
- */
 export function DataStatusBadge({
   status = "unavailable",
   className,
 }: {
-  status?: DataFreshness;
+  status?: DataQualityStatus;
   className?: string;
 }) {
   const { label, dotClass, variant } = statusConfig[status];

@@ -7,6 +7,11 @@
  * docs (docs.raydium.io/api-reference/api-v3/overview): envelope
  * { id, success, msg?, data } and pool entries with mintA/mintB objects,
  * price = value of 1 mintA in mintB, feeRate as a fraction, day/week windows.
+ *
+ * Integrity validation (docs/05 Data Integrity): required identifiers,
+ * decimal bounds, and impossible negative values (where the source contract
+ * forbids them) are checked here — invalid entries are rejected, never
+ * silently forwarded toward the domain layer.
  */
 
 import { asNumber, asRecord, asString } from "@/utils/parse";
@@ -63,30 +68,10 @@ export interface RaydiumPoolList {
 /** Envelope for /pools/info/ids: data is a bare pool array. */
 export type RaydiumPoolArray = RaydiumPool[];
 
-/**
- * Parses raw JSON text into an envelope. Returns null (never throws) for
- * malformed payloads; `success: false` propagates for msg-based errors.
- */
-export function parseRaydiumEnvelope<T>(text: string): RaydiumEnvelope<T> | null {
-  let json: unknown;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    return null;
-  }
-  const record = asRecord(json);
-  if (!record) return null;
-  const success = record.success;
-  if (typeof success !== "boolean") return null;
-  return {
-    success,
-    msg: typeof record.msg === "string" ? record.msg : undefined,
-    data: record.data as T | undefined,
-  };
-}
+/** SPL/Solana decimal bound: no mint has more than 11 decimals. */
+const MAX_DECIMALS = 11;
 
-/** Parses one raw mint object defensively. */
-export function parseRaydiumMint(value: unknown): RaydiumMint | null {
+function parseMint(value: unknown): RaydiumMint | null {
   const record = asRecord(value);
   if (!record) return null;
   const address = asString(record.address);
@@ -95,18 +80,24 @@ export function parseRaydiumMint(value: unknown): RaydiumMint | null {
   const decimals = asNumber(record.decimals);
   const chainId = asNumber(record.chainId);
   if (!address || !symbol || !name || decimals === null || chainId === null) return null;
+  // Integrity (docs/05): decimals must be a plausible SPL range.
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > MAX_DECIMALS) return null;
   return { address, symbol, name, decimals, chainId };
 }
 
-/** Parses one raw pool object defensively; any missing required field rejects the entry. */
+/**
+ * Parses one raw pool object defensively; any missing required field,
+ * impossible negative value, or bad decimals rejects the entry (docs/05
+ * Data Integrity). Prices must be positive; TVL/amounts/fees non-negative.
+ */
 export function parseRaydiumPool(value: unknown): RaydiumPool | null {
   const record = asRecord(value);
   if (!record) return null;
   const id = asString(record.id);
   const type = asString(record.type);
   const programId = asString(record.programId);
-  const mintA = parseRaydiumMint(record.mintA);
-  const mintB = parseRaydiumMint(record.mintB);
+  const mintA = parseMint(record.mintA);
+  const mintB = parseMint(record.mintB);
   const price = asNumber(record.price);
   const feeRate = asNumber(record.feeRate);
   const tvl = asNumber(record.tvl);
@@ -126,6 +117,10 @@ export function parseRaydiumPool(value: unknown): RaydiumPool | null {
   ) {
     return null;
   }
+  // Integrity: price positive; TVL/amounts/fee-rate non-negative.
+  if (price <= 0 || tvl < 0 || mintAmountA < 0 || mintAmountB < 0 || feeRate < 0) return null;
+  // Integrity: feeRate is a fraction of swapped value; anything >= 1 is nonsense.
+  if (feeRate >= 1) return null;
   const day = asRecord(record.day);
   return {
     id,
@@ -145,5 +140,27 @@ export function parseRaydiumPool(value: unknown): RaydiumPool | null {
           feeApr: asNumber(day.feeApr) ?? undefined,
         }
       : undefined,
+  };
+}
+
+/**
+ * Parses raw JSON text into an envelope. Returns null (never throws) for
+ * malformed payloads; `success: false` propagates for msg-based errors.
+ */
+export function parseRaydiumEnvelope<T>(text: string): RaydiumEnvelope<T> | null {
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  const record = asRecord(json);
+  if (!record) return null;
+  const success = record.success;
+  if (typeof success !== "boolean") return null;
+  return {
+    success,
+    msg: typeof record.msg === "string" ? record.msg : undefined,
+    data: record.data as T | undefined,
   };
 }

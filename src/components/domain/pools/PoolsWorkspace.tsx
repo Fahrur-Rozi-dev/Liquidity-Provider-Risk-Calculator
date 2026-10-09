@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -10,21 +10,25 @@ import { StatTile } from "@/components/ui/StatTile";
 import { usePoolData } from "@/hooks/usePoolData";
 import { FixturePoolProvider } from "@/providers/fixture";
 import type { PoolDataProvider } from "@/providers/types";
-import type { DiscoveredPool } from "@/services/poolData";
+import { savePoolSelection } from "@/services/poolSelectionStore";
+import { toPoolSelection as buildSelection } from "@/services/poolData";
+import type { PoolMetadata } from "@/types";
 import { formatCurrency, formatNumber, formatPercent } from "@/utils/format";
 
 /**
  * Pools workspace (Phase 3 — Production Data Foundation, docs/06).
  *
  * Read-only pool research through the normalized provider contracts:
- * discovery, deterministic selection, freshness/provenance display, and a
- * snapshot detail view. This workspace contains no financial calculations —
- * all valuation math stays in the domain engines (docs/02, docs/06).
+ * discovery, deterministic selection, canonical quality display (docs/05
+ * DataQuality), and a snapshot detail view. This workspace contains no
+ * financial calculations — all valuation math stays in the domain engines
+ * (docs/02, docs/06).
  *
- * The provider instance is created client-side (class instances cannot cross
- * the server→client boundary); the workspace only depends on the
- * PoolDataProvider INTERFACE, so swapping the fixture for the production
- * Raydium adapter later is a one-line composition change.
+ * Unknown values render as "—" and are never coerced to zero (docs/05
+ * Unknown vs Zero). The provider instance is created client-side (class
+ * instances cannot cross the server→client boundary); the workspace only
+ * depends on the PoolDataProvider INTERFACE, so swapping the fixture for the
+ * production Raydium adapter later is a one-line composition change.
  */
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -33,39 +37,27 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 function PoolRow({
-  item,
+  metadata,
   selected,
   onSelect,
 }: {
-  item: DiscoveredPool;
+  metadata: PoolMetadata;
   selected: boolean;
-  onSelect: (poolId: string) => void;
+  onSelect: (poolKey: string) => void;
 }) {
-  const { pool } = item;
   return (
     <tr className={selected ? "bg-accent-muted/40" : undefined}>
       <td className="whitespace-nowrap px-4 py-2.5 font-medium">
-        {pool.token0.symbol}/{pool.token1.symbol}
+        {metadata.token0.symbol}/{metadata.token1.symbol}
       </td>
       <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs tabular-nums text-muted">
-        {formatPercent(pool.feeRate, 3)}
+        {formatPercent(metadata.feeTier, 3)}
       </td>
-      <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs tabular-nums text-muted">
-        {formatNumber(pool.currentPrice, 6)}
-      </td>
-      <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs tabular-nums text-muted">
-        {pool.tvlUsd === null ? "—" : formatCurrency(pool.tvlUsd, "USD", 0)}
-      </td>
-      <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs tabular-nums text-muted">
-        {pool.volume24hUsd === null ? "—" : formatCurrency(pool.volume24hUsd, "USD", 0)}
-      </td>
-      <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs tabular-nums text-muted">
-        {pool.fees24hUsd === null ? "—" : formatCurrency(pool.fees24hUsd, "USD", 0)}
-      </td>
+      <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs">{metadata.id.address.slice(0, 6)}…</td>
       <td className="whitespace-nowrap px-4 py-2.5">
         <button
           type="button"
-          onClick={() => onSelect(pool.id)}
+          onClick={() => onSelect(metadata.key)}
           className="rounded border border-border-strong bg-panel-2 px-2 py-1 text-xs font-medium text-text hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           aria-pressed={selected}
         >
@@ -84,53 +76,60 @@ export function PoolsWorkspace({ provider }: { provider?: PoolDataProvider } = {
   const {
     status,
     pools,
-    primary,
-    selectedId,
-    provenance,
+    primaryPoolKey,
+    selectedKey,
+    quality,
+    metadataStatus,
+    metadata,
     snapshotStatus,
     snapshot,
     error,
     selectPool,
     load,
   } = usePoolData(resolvedProvider);
-  const [lastSelected, setLastSelected] = useState<string | null>(null);
 
-  const onSelect = (poolId: string) => {
-    setLastSelected(poolId);
-    selectPool(poolId);
-  };
+  const visibleKey = selectedKey ?? primaryPoolKey;
 
-  const selectedPool = useMemo(
-    () => pools?.find((item) => item.pool.id === (lastSelected ?? selectedId)) ?? null,
-    [pools, lastSelected, selectedId],
-  );
-  // Snapshot tiles work on PoolSnapshot; discovery rows on Pool. Show the
-  // selection's own (fresh) values when no snapshot has loaded yet.
   const detail = useMemo(() => {
-    if (!selectedPool) return null;
+    if (!metadata) return null;
     const hasSnapshot = snapshotStatus === "ready" && snapshot !== null;
     return {
-      volatileSymbol: selectedPool.pool.token0.symbol,
-      stableSymbol: selectedPool.pool.token1.symbol,
-      protocol: selectedPool.pool.protocol,
-      poolType: selectedPool.pool.poolType,
-      price: hasSnapshot && snapshot ? snapshot.price : selectedPool.pool.currentPrice,
-      feeRate: hasSnapshot && snapshot ? snapshot.feeRate : selectedPool.pool.feeRate,
-      tvlUsd: hasSnapshot && snapshot ? snapshot.tvlUsd : selectedPool.pool.tvlUsd,
+      key: metadata.key,
+      pair: `${metadata.token0.symbol}/${metadata.token1.symbol}`,
+      protocol: metadata.id.protocol,
+      poolType: metadata.poolType.toUpperCase(),
+      price: hasSnapshot && snapshot ? snapshot.price : null,
+      feeTier: hasSnapshot && snapshot && snapshot.feeTier !== null ? snapshot.feeTier : metadata.feeTier,
+      tvlUsd: hasSnapshot && snapshot ? snapshot.tvlUsd : null,
       liquidity: hasSnapshot && snapshot ? snapshot.liquidity : null,
+      observedAt: hasSnapshot && snapshot ? snapshot.observedAt : null,
+      warnings: hasSnapshot && snapshot ? snapshot.quality.warnings : quality?.warnings ?? [],
     };
-  }, [selectedPool, snapshot, snapshotStatus]);
+  }, [metadata, snapshot, snapshotStatus, quality]);
+
+  const onSelect = (poolKey: string) => {
+    selectPool(poolKey);
+  };
+
+  // Hand off the joined selection to the calculator (explicit suggestion).
+  const sendToCalculator = () => {
+    if (!metadata || snapshotStatus !== "ready" || !snapshot) return;
+    savePoolSelection(buildSelection(metadata, snapshot));
+  };
+
+  const statusLine = quality
+    ? `${quality.source}${quality.fetchedAt ? ` · fetched ${dateFormatter.format(quality.fetchedAt)}` : ""}`
+    : resolvedProvider.id;
 
   return (
     <div className="space-y-6">
-      {/* Data status — source + freshness are first-class UI here (docs/05, docs/09). */}
+      {/* Data status — source + canonical quality are first-class UI (docs/05, docs/09). */}
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-2 text-sm text-muted">
-            <DataStatusBadge status={provenance?.freshness ?? "unavailable"} />
+            <DataStatusBadge status={quality?.status ?? "unavailable"} />
             <span>
-              Source: <span className="font-mono text-xs">{provenance?.source ?? resolvedProvider.id}</span>
-              {provenance?.fetchedAt ? ` · fetched ${dateFormatter.format(provenance.fetchedAt)}` : ""}
+              Source: <span className="font-mono text-xs">{statusLine}</span>
             </span>
           </div>
           <button
@@ -141,6 +140,13 @@ export function PoolsWorkspace({ provider }: { provider?: PoolDataProvider } = {
             Reload
           </button>
         </div>
+        {quality && quality.warnings.length > 0 ? (
+          <ul className="border-t border-border px-4 py-2.5 text-xs text-warn">
+            {quality.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        ) : null}
         {error ? (
           <p className="border-t border-loss/30 bg-loss/10 px-4 py-2.5 text-sm text-loss">{error}</p>
         ) : null}
@@ -170,34 +176,28 @@ export function PoolsWorkspace({ provider }: { provider?: PoolDataProvider } = {
                 <thead>
                   <tr className="border-b border-border text-[11px] uppercase tracking-wider text-faint">
                     <th scope="col" className="px-4 py-2 font-medium">Pair</th>
-                    <th scope="col" className="px-4 py-2 font-medium">Fee</th>
-                    <th scope="col" className="px-4 py-2 font-medium">Price ({selectedPool ? `${selectedPool.pool.token1.symbol} per 1 ${selectedPool.pool.token0.symbol}` : "stable per volatile"})</th>
-                    <th scope="col" className="px-4 py-2 font-medium">TVL</th>
-                    <th scope="col" className="px-4 py-2 font-medium">Volume 24h</th>
-                    <th scope="col" className="px-4 py-2 font-medium">Fees 24h</th>
+                    <th scope="col" className="px-4 py-2 font-medium">Fee tier</th>
+                    <th scope="col" className="px-4 py-2 font-medium">Pool</th>
                     <th scope="col" className="px-4 py-2 font-medium"><span className="sr-only">Select</span></th>
                   </tr>
                 </thead>
                 <tbody>
                   {pools.map((item) => (
                     <PoolRow
-                      key={item.pool.id}
-                      item={item}
-                      selected={item.pool.id === (lastSelected ?? selectedId)}
+                      key={item.metadata.key}
+                      metadata={item.metadata}
+                      selected={item.metadata.key === visibleKey}
                       onSelect={onSelect}
                     />
                   ))}
                 </tbody>
               </table>
             </div>
-            {primary ? (
+            {primaryPoolKey ? (
               <p className="border-t border-border px-4 py-2.5 text-xs text-muted">
-                Deterministic primary selection (highest TVL):{" "}
-                <span className="font-medium text-text">
-                  {primary.volatileSymbol}/{primary.stableSymbol}
-                </span>{" "}
-                @ {formatNumber(primary.entryPrice, 6)} — reusable as the calculator default
-                (provider-first architecture, docs/06).
+                Deterministic primary selection (provider-ranked first pool):{" "}
+                <span className="font-mono text-xs text-text">{primaryPoolKey}</span> — reusable as
+                the calculator default (provider-first architecture, docs/06).
               </p>
             ) : null}
           </Card>
@@ -205,39 +205,57 @@ export function PoolsWorkspace({ provider }: { provider?: PoolDataProvider } = {
           {detail ? (
             <Card>
               <CardHeader
-                title={`Detail — ${detail.volatileSymbol}/${detail.stableSymbol}`}
+                title={`Detail — ${detail.pair}`}
                 actions={
                   <>
                     <Badge variant="neutral">{detail.protocol}</Badge>
-                    <Badge variant="neutral">{detail.poolType.toUpperCase()}</Badge>
-                    <DataStatusBadge status={snapshotStatus === "ready" ? (provenance?.freshness ?? "unavailable") : snapshotStatus === "loading" ? "updating" : provenance?.freshness ?? "unavailable"} />
+                    <Badge variant="neutral">{detail.poolType}</Badge>
+                    <DataStatusBadge status={snapshotStatus === "ready" && snapshot ? snapshot.quality.status : snapshotStatus === "loading" ? "partial" : quality?.status ?? "unavailable"} />
                   </>
                 }
               />
-              {snapshotStatus === "loading" ? (
-                <p className="px-4 py-4 text-sm text-muted">Loading snapshot…</p>
-              ) : snapshotStatus === "error" ? (
+              {snapshotStatus === "loading" || metadataStatus === "loading" ? (
+                <p className="px-4 py-4 text-sm text-muted">Loading pool detail…</p>
+              ) : metadataStatus === "error" || snapshotStatus === "error" ? (
                 <p className="px-4 py-4 text-sm text-loss">
-                  Snapshot failed — {provenance?.error ?? "unknown provider error"}. No data is invented to fill this view.
+                  Detail failed — {quality?.error ?? "unknown provider error"}. No data is invented to fill this view.
                 </p>
               ) : (
-                <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <StatTile
-                    label="Price"
-                    value={formatNumber(detail.price, 6)}
-                    sub={`${detail.stableSymbol} per 1 ${detail.volatileSymbol}`}
-                  />
-                  <StatTile label="Fee rate" value={formatPercent(detail.feeRate, 3)} />
-                  <StatTile
-                    label="TVL"
-                    value={detail.tvlUsd === null ? "—" : formatCurrency(detail.tvlUsd, "USD", 0)}
-                  />
-                  <StatTile
-                    label="Liquidity L"
-                    value={detail.liquidity === null ? "Not exposed" : formatNumber(detail.liquidity, 4)}
-                    sub="Raw pool liquidity is not normalized across pool types"
-                  />
-                </div>
+                <>
+                  <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <StatTile
+                      label="Price"
+                      value={detail.price === null ? "—" : formatNumber(detail.price, 6)}
+                      sub={`${detail.pair.split("/")[1]} per 1 ${detail.pair.split("/")[0]}`}
+                    />
+                    <StatTile label="Fee tier" value={formatPercent(detail.feeTier, 3)} />
+                    <StatTile
+                      label="TVL"
+                      value={detail.tvlUsd === null ? "—" : formatCurrency(detail.tvlUsd, "USD", 0)}
+                      sub={detail.tvlUsd === null ? "Unknown — not supplied by the provider" : undefined}
+                    />
+                    <StatTile
+                      label="Liquidity L"
+                      value={detail.liquidity === null ? "—" : formatNumber(detail.liquidity, 4)}
+                      sub="Raw pool liquidity is not normalized across pool types"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
+                    <p className="text-xs text-muted">
+                      {detail.observedAt
+                        ? `Observed ${dateFormatter.format(detail.observedAt)}.`
+                        : "No observation timestamp supplied — data must not be presented as live."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={sendToCalculator}
+                      disabled={snapshotStatus !== "ready" || !snapshot}
+                      className="rounded border border-accent/50 bg-accent-muted px-2.5 py-1.5 text-xs font-medium text-accent hover:border-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Use in Calculator
+                    </button>
+                  </div>
+                </>
               )}
             </Card>
           ) : null}
@@ -249,7 +267,7 @@ export function PoolsWorkspace({ provider }: { provider?: PoolDataProvider } = {
         <ul className="grid gap-2 px-4 py-4 text-sm text-muted sm:grid-cols-2">
           <li className="flex items-start gap-2">
             <span aria-hidden="true" className="mt-1.5 size-1 shrink-0 rounded-full bg-faint" />
-            Provider responses are provider-cached and can lag chain state by minutes; freshness is shown per dataset and stale data is never presented as live.
+            Provider responses are provider-cached and can lag chain state by minutes; canonical quality (docs/05) is shown per dataset and stale data is never presented as live.
           </li>
           <li className="flex items-start gap-2">
             <span aria-hidden="true" className="mt-1.5 size-1 shrink-0 rounded-full bg-faint" />
@@ -257,7 +275,7 @@ export function PoolsWorkspace({ provider }: { provider?: PoolDataProvider } = {
           </li>
           <li className="flex items-start gap-2">
             <span aria-hidden="true" className="mt-1.5 size-1 shrink-0 rounded-full bg-faint" />
-            Fee/volume/TVL figures are pool-level provider-reported aggregates — not position-level estimates.
+            Unknown values stay unknown: TVL, volume, fees, and liquidity that a provider does not supply render as &quot;—&quot; and are never replaced with zero.
           </li>
           <li className="flex items-start gap-2">
             <span aria-hidden="true" className="mt-1.5 size-1 shrink-0 rounded-full bg-faint" />

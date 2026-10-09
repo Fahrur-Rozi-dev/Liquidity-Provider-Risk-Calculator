@@ -1,7 +1,9 @@
 import {
-  assessFreshness,
-  failedProvenance,
-  liveProvenance,
+  assessQuality,
+  errorQuality,
+  observationQuality,
+  okQuality,
+  unavailableQuality,
   LIVE_WINDOW_MS,
   providerErrorMessage,
   validatePriceSeries,
@@ -9,53 +11,102 @@ import {
 import { CSV_HEADER, parseHistoricalPriceCsv } from "@/providers/historical/csv";
 import type { PricePoint } from "@/types";
 
-describe("assessFreshness", () => {
+/**
+ * Canonical data-quality tests (docs/05): ONE DataQuality model, one status
+ * vocabulary (fresh|stale|partial|unavailable|error), Unknown vs Zero.
+ */
+
+describe("assessQuality", () => {
   const now = 1_000_000;
 
-  it("marks data within the live window as live", () => {
-    expect(assessFreshness({ observedAt: now - LIVE_WINDOW_MS / 2, fetchedAt: null }, now)).toBe("live");
+  it("marks data within the live window as fresh", () => {
+    expect(assessQuality({ observedAt: now - LIVE_WINDOW_MS / 2, fetchedAt: null }, now)).toBe("fresh");
   });
 
   it("marks data older than the window as stale", () => {
-    expect(assessFreshness({ observedAt: now - LIVE_WINDOW_MS - 1, fetchedAt: null }, now)).toBe("stale");
+    expect(assessQuality({ observedAt: now - LIVE_WINDOW_MS - 1, fetchedAt: null }, now)).toBe("stale");
   });
 
   it("prefers observedAt over fetchedAt", () => {
     const observedAt = now - LIVE_WINDOW_MS - 1; // stale
-    const fetchedAt = now - 1; // would be live
-    expect(assessFreshness({ observedAt, fetchedAt }, now)).toBe("stale");
+    const fetchedAt = now - 1; // would be fresh
+    expect(assessQuality({ observedAt, fetchedAt }, now)).toBe("stale");
   });
 
   it("falls back to fetchedAt when observedAt is null", () => {
-    expect(assessFreshness({ observedAt: null, fetchedAt: now - 1 }, now)).toBe("live");
+    expect(assessQuality({ observedAt: null, fetchedAt: now - 1 }, now)).toBe("fresh");
   });
 
   it("is unavailable without any timestamps", () => {
-    expect(assessFreshness({ observedAt: null, fetchedAt: null }, now)).toBe("unavailable");
+    expect(assessQuality({ observedAt: null, fetchedAt: null }, now)).toBe("unavailable");
   });
 
   it("treats non-finite timestamps as unavailable", () => {
-    expect(assessFreshness({ observedAt: Number.NaN, fetchedAt: null }, now)).toBe("unavailable");
+    expect(assessQuality({ observedAt: Number.NaN, fetchedAt: null }, now)).toBe("unavailable");
   });
 });
 
-describe("provenance factories", () => {
-  it("liveProvenance records the source and time as live", () => {
-    const provenance = liveProvenance("raydium-api-v3", 123);
-    expect(provenance).toEqual({
+describe("quality factories", () => {
+  it("okQuality records the source and fetch time as fresh", () => {
+    const quality = okQuality("raydium-api-v3", 123);
+    expect(quality).toEqual({
+      status: "fresh",
       source: "raydium-api-v3",
       fetchedAt: 123,
       observedAt: null,
-      freshness: "live",
+      warnings: [],
       estimated: false,
     });
   });
 
-  it("failedProvenance marks freshness error with the message", () => {
-    const provenance = failedProvenance("src", 5, "[network] boom");
-    expect(provenance.freshness).toBe("error");
-    expect(provenance.error).toBe("[network] boom");
-    expect(provenance.estimated).toBe(false);
+  it("okQuality propagates warnings and the estimated flag", () => {
+    const quality = okQuality("src", 1, ["cache window"], true);
+    expect(quality.warnings).toEqual(["cache window"]);
+    expect(quality.estimated).toBe(true);
+  });
+
+  it("errorQuality marks status error with the structured message", () => {
+    const quality = errorQuality("src", 5, "[network] boom");
+    expect(quality.status).toBe("error");
+    expect(quality.error).toBe("[network] boom");
+    expect(quality.fetchedAt).toBe(5);
+    expect(quality.estimated).toBe(false);
+  });
+
+  it("unavailableQuality marks sources with no observation at all", () => {
+    const quality = unavailableQuality("fixture", "not realtime");
+    expect(quality.status).toBe("unavailable");
+    expect(quality.warnings).toEqual(["not realtime"]);
+    expect(quality.fetchedAt).toBeNull();
+    expect(quality.observedAt).toBeNull();
+  });
+});
+
+describe("observationQuality", () => {
+  const now = 1_000_000;
+
+  it("upgrades fresh observations with warnings to partial", () => {
+    const quality = observationQuality(
+      { source: "src", observedAt: now - 1, fetchedAt: now },
+      now,
+      ["TVL not supplied"],
+    );
+    expect(quality.status).toBe("partial");
+    expect(quality.warnings).toEqual(["TVL not supplied"]);
+  });
+
+  it("keeps stale observations stale even with warnings (stale is the stronger signal)", () => {
+    const quality = observationQuality(
+      { source: "src", observedAt: now - LIVE_WINDOW_MS - 1, fetchedAt: null },
+      now,
+      ["TVL not supplied"],
+    );
+    expect(quality.status).toBe("stale");
+  });
+
+  it("stays fresh without warnings", () => {
+    const quality = observationQuality({ source: "src", observedAt: null, fetchedAt: now }, now);
+    expect(quality.status).toBe("fresh");
   });
 });
 
