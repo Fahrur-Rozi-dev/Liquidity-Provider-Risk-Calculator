@@ -142,6 +142,62 @@ export interface ClmmScenarioSet {
   points: ClmmScenarioPoint[];
 }
 
+/** Range-sensitivity sweep result — Phase 4 ADDITION (docs/06 "range sensitivity"). */
+export interface RangeSensitivityRow {
+  /** Lower bound of the tested range (upper bound fixed). */
+  lowerPrice: number;
+  /** Upper bound of the tested range (lower bound fixed). */
+  upperPrice: number;
+  /** Final LP value at the terminal scenario price for this range. */
+  finalLpValue: number;
+  /** Final combined (LP + hedge) PnL at the terminal price for this range. */
+  finalCombinedPnl: number;
+  /** Fraction of scenario prices landing inside this range (0..1). */
+  inRangeShare: number;
+}
+
+/**
+ * Range sensitivity: sweeps candidate ranges around the SAME entry price and
+ * scenario ladder to show how range width changes the outcome distribution —
+ * explicitly a what-if comparison, never a claim of an optimal range
+ * (docs/06 Phase 6). Pure and deterministic; no new domain math: rows reuse
+ * the exact CLMM engine.
+ */
+export function computeRangeSensitivity(
+  clmm: CLMMConfig,
+  hedge: HedgeConfig,
+  prices: readonly number[],
+  options: { lower: readonly number[]; upper: readonly number[] },
+): RangeSensitivityRow[] {
+  const configErrors = validateCLMMConfig(clmm);
+  if (configErrors.length > 0) {
+    throw new RangeError(configErrors.join(" "));
+  }
+  const priceErrors = validateScenarioPrices(prices);
+  if (priceErrors.length > 0) {
+    throw new RangeError(priceErrors.join(" "));
+  }
+  if (options.lower.length !== options.upper.length) {
+    throw new RangeError("lower and upper sweep arrays must have the same length");
+  }
+
+  return options.lower.map((lowerPrice, index) => {
+    const upperPrice = options.upper[index];
+    const candidate: CLMMConfig = { ...clmm, lowerPrice, upperPrice };
+    // Reuse the existing exact scenario engine unchanged for each candidate.
+    const scenario = computeClmmScenarios(candidate, hedge, prices);
+    const last = scenario.points[scenario.points.length - 1];
+    const inRangeCount = scenario.points.filter((p) => p.rangeStatus === "IN_RANGE").length;
+    return {
+      lowerPrice,
+      upperPrice,
+      finalLpValue: last.lpValue,
+      finalCombinedPnl: last.combinedPnl,
+      inRangeShare: prices.length > 0 ? inRangeCount / prices.length : 0,
+    };
+  });
+}
+
 /**
  * Phase 2 scenario engine over the EXACT CLMM model + the basic short hedge.
  * Adds to (never replaces) the simplified computeScenarios above.

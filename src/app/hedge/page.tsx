@@ -1,10 +1,7 @@
-import { PlaceholderWorkspace } from "@/components/layout/PlaceholderWorkspace";
-import { getRouteByPath } from "@/config/navigation";
+import { HedgeWorkspace } from "@/components/domain/hedge/HedgeWorkspace";
 
 export const metadata = { title: "Dynamic Hedge" };
 
-const route = getRouteByPath("/hedge")!;
-
 export default function HedgePage() {
-  return <PlaceholderWorkspace route={route} />;
+  return <HedgeWorkspace />;
 }

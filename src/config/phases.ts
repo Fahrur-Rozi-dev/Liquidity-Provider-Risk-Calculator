@@ -42,18 +42,18 @@ export const PHASES: readonly PhaseInfo[] = [
   {
     id: 3,
     name: "Production Data Foundation",
-    status: "in-progress",
+    status: "complete",
     routes: ["/pools"],
     summary:
       "Normalized data contracts, read-only provider interfaces, Raydium CLMM adapter, deterministic fixtures, pool discovery/detail, calculator integration.",
   },
   {
     id: 4,
-    name: "Dynamic Hedge",
-    status: "planned",
+    name: "Forward Scenario & Dynamic Hedge",
+    status: "in-progress",
     routes: ["/hedge"],
     summary:
-      "Fixed/dynamic/threshold hedge, target ratio, tranches, FIFO, funding, costs, cooldown, event log — on normalized data and the existing CLMM engine.",
+      "Forward price-path scenarios over the exact CLMM engine plus fixed/dynamic/threshold tranche hedge with FIFO, funding, costs, cooldown, event log, residual delta.",
   },
   {
     id: 5,

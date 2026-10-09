@@ -57,9 +57,9 @@ export const ROUTES: readonly AppRoute[] = [
     label: "Hedge",
     title: "Dynamic Hedge",
     phaseLabel: "Phase 4",
-    status: "planned",
+    status: "in-progress",
     description:
-      "Dynamic hedge simulator: fixed, dynamic and threshold-based modes with tranches, funding and rebalance costs.",
+      "Forward scenario & dynamic hedge simulator: fixed, dynamic and threshold-based modes with tranches, funding and rebalance costs.",
     deliverables: [
       "Fixed hedge, dynamic hedge and threshold modes",
       "Configurable target hedge ratio (default 75%)",

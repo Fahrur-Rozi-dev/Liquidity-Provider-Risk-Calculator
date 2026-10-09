@@ -9,12 +9,13 @@ import { NumberField, SelectField, TextField } from "@/components/ui/fields";
 import type { LPPositionConfig } from "@/domain/lp";
 import type { CLMMConfig } from "@/domain/clmm";
 import type { HedgeConfig } from "@/domain/hedge";
-import { computeClmmScenarios, computeScenarios } from "@/services/calculator";
+import { computeClmmScenarios, computeScenarios, computeRangeSensitivity, type RangeSensitivityRow } from "@/services/calculator";
 import { readPoolSelection } from "@/services/poolSelectionStore";
 import { linspace } from "@/utils/array";
 
 import { ClmmResultView } from "./ClmmResultView";
 import { SimplifiedResultView } from "./SimplifiedResultView";
+import { RangeSensitivityCard } from "./RangeSensitivityCard";
 
 /**
  * Calculator workspace (docs/06-roadmap.md Phases 1–2, docs/03-design.md).
@@ -159,6 +160,20 @@ export function CalculatorWorkspace() {
     () => (parsed.ok ? computeClmmScenarios(parsed.config.clmm, parsed.config.hedge, parsed.config.prices) : null),
     [parsed],
   );
+  // Phase 4 ADDITION: range sensitivity sweep (exact model only, additive to
+  // the existing Phase 1–2 views — nothing replaced).
+  const sensitivity = useMemo<RangeSensitivityRow[] | null>(() => {
+    if (!parsed.ok || form.model !== "exact-clmm") return null;
+    const entry = parsed.config.clmm.entryPrice;
+    const clmm = parsed.config.clmm;
+    try {
+      const lower = [entry / 1.33, entry / 1.66, entry / 2, entry / 3];
+      const upper = [entry * 1.33, entry * 1.66, entry * 2, entry * 3];
+      return computeRangeSensitivity(clmm, parsed.config.hedge, parsed.config.prices, { lower, upper });
+    } catch {
+      return null;
+    }
+  }, [parsed, form.model]);
 
   // Apply a provider-derived pool selection (explicit hand-off from /pools).
   // The banner dispatches "lp-platform:pool-selection-applied"; entry price and
@@ -362,6 +377,9 @@ export function CalculatorWorkspace() {
               volatile={volatile}
             />
           ) : null}
+
+          {/* Phase 4 addition: range sensitivity sits BELOW the primary result view. */}
+          {showExact && sensitivity ? <RangeSensitivityCard rows={sensitivity} /> : null}
         </div>
       </div>
 
