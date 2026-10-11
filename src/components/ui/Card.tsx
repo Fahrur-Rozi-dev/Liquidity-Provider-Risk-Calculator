@@ -4,7 +4,7 @@ import { cn } from "@/utils/cn";
 
 /** Base surface: bordered panel used across all workspaces. */
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("rounded-lg border border-border bg-panel", className)}>{children}</div>;
+  return <div className={cn("rounded-xl border border-border bg-panel backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.35)]", className)}>{children}</div>;
 }
 
 /** Bordered card header strip with an optional title and right-side actions. */

@@ -5,6 +5,7 @@ import type { AppRoute } from "@/config/navigation";
 export function PageHeader({ route }: { route: AppRoute }) {
   return (
     <header className="border-b border-border pb-5">
+      <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-accent">Research workspace / scenario engine</div>
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{route.title}</h1>
         <Badge variant={route.status === "in-progress" ? "accent" : "muted"}>

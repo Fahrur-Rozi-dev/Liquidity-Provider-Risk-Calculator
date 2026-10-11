@@ -14,7 +14,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
       <div className="lg:pl-60">
         <TopBar onMenu={() => setNavOpen((v) => !v)} />
-        <main className="mx-auto w-full max-w-6xl px-4 py-6 lg:px-8">{children}</main>
+        <main className="relative mx-auto w-full max-w-[1600px] overflow-hidden px-4 py-6 lg:px-8">{children}</main>
       </div>
     </div>
   );

@@ -202,10 +202,12 @@ export function CalculatorWorkspace() {
   const showSimplified = form.model === "simplified" ? simplified : null;
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+    <div className="relative space-y-6">
+      <div className="pointer-events-none absolute -left-24 -top-24 size-96 rounded-full bg-[#00f2fe]/[0.04] blur-3xl" />
+      <div className="pointer-events-none absolute right-0 top-48 size-80 rounded-full bg-[#10b981]/[0.03] blur-3xl" />
+      <div className="relative grid gap-6 xl:grid-cols-12">
         {/* Input area — groups per docs/03-design.md (costs/fees group arrives with the hedge phase) */}
-        <div className="space-y-6">
+        <div className="space-y-6 xl:col-span-5">
           <Card>
             <CardHeader title="Model" />
             <div className="px-4 py-4">
@@ -354,7 +356,7 @@ export function CalculatorWorkspace() {
         </div>
 
         {/* Results */}
-        <div className="space-y-6">
+        <div className="space-y-6 xl:col-span-7">
           {!parsed.ok ? (
             <EmptyState title="Fix the inputs to see scenario results">
               <ul className="list-inside list-disc space-y-1 text-left text-sm text-muted">

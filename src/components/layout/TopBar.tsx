@@ -15,7 +15,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
   const route = getRouteByPath(pathname);
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-bg/90 px-4 backdrop-blur lg:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-[#0b0e14]/80 px-4 backdrop-blur-xl lg:px-6">
       <button
         type="button"
         onClick={onMenu}
