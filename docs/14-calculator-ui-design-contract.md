@@ -12,7 +12,9 @@
 > - `docs/07-do-and-donts.md`
 > - `docs/10-quality-gates.md`
 >
-> Google Stitch reference: **TODO — add the approved Stitch project/share URL and exported screenshots here.**
+> Google Stitch reference: https://stitch.withgoogle.com/projects/7580019220011459367
+>
+> Access note: the project URL is recorded, but the screen contents were not retrievable from this environment. Treat the actual Stitch screens as authoritative; do not infer exact styling from this contract alone. If the coding agent cannot open the project while authenticated, export the screens from Stitch and commit screenshots/HTML under `docs/design/screenshots/`.
 >
 > Important: this document defines UX behavior and visual guardrails. Once the approved Stitch design URL/screenshots are attached, they are the visual source of truth. Do not invent a competing visual direction.
 
@@ -238,7 +240,7 @@ Suggested conceptual components (names are not mandatory; inspect the codebase f
 ## 10. Stitch reference handoff
 
 Before implementing a visual task, the task owner should provide or link:
-- Approved Stitch project/share URL
+- Approved Stitch project/share URL: https://stitch.withgoogle.com/projects/7580019220011459367
 - Screenshot or export for each target page/state
 - Desktop viewport dimensions; mobile/tablet references if available
 - Which screen is canonical if multiple explorations exist
