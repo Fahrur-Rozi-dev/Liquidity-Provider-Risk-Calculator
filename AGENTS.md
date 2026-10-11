@@ -25,10 +25,21 @@ Core docs include:
 - docs/11-phase-checklists.md
 - docs/12-current-rebuild.md
 - docs/13-data-architecture.md
+- docs/14-calculator-ui-design-contract.md (mandatory for any UI work on /calculator)
 
 For Phase 3 provider/data work, `docs/05-data-model.md` and `docs/13-data-architecture.md` are mandatory.
 
 If code, Linear, and docs conflict, STOP and report the conflict. Do not silently reinterpret the specification.
+
+
+## UI Design Contract
+
+For any task that creates or modifies the `/calculator` UI:
+1. Read `docs/03-design.md` and `docs/14-calculator-ui-design-contract.md`.
+2. Inspect the approved Google Stitch reference and screenshots linked from the design contract before implementation.
+3. If the reference is not linked or cannot be accessed, request the exported screenshots/reference. Do not invent a different visual direction or claim visual fidelity without inspecting it.
+4. Treat visual QA as part of acceptance: compare implementation screenshots against the approved reference at comparable viewport sizes.
+5. Keep UI changes scoped. Do not alter financial calculations, provider behavior, data contracts, or unrelated routes to make a design task easier.
 
 ## Core Rule
 
